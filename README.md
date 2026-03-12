@@ -62,7 +62,6 @@ python3 conversation.py --once "你好"
 ## 项目结构
 
 ```
-gws/
 ├── core/
 │   ├── emotion.py       # PAD 情绪模型 + LLM 文本情绪提取
 │   ├── memory.py        # 工作记忆 + 长期记忆
