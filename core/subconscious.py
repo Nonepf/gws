@@ -265,30 +265,51 @@ class SubconsciousLayer:
         if len(all_memories) < 3:
             return None
 
+        # 统计标签和来源频率
         tag_counts = {}
+        source_counts = {}
+        type_counts = {}
         for m in all_memories:
             for tag in m.tags:
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            src = m.source or "unknown"
+            source_counts[src] = source_counts.get(src, 0) + 1
+            t = m.memory_type.value
+            type_counts[t] = type_counts.get(t, 0) + 1
 
-        if not tag_counts:
+        if not tag_counts and not source_counts:
             return None
 
-        if arousal > 0.3:
-            # 异常模式：找出现频率异常高或异常低的
-            avg_count = sum(tag_counts.values()) / len(tag_counts)
-            anomalies = [(t, c) for t, c in tag_counts.items() if c > avg_count * 2 or c == 1]
-            if anomalies:
-                top = sorted(anomalies, key=lambda x: x[1], reverse=True)[:3]
-                def _fmt_anomaly(tag, c):
-                    status = '异常高频' if c > avg_count * 2 else '仅出现1次'
-                    return f"{tag}({status})"
-                pattern_desc = ", ".join(_fmt_anomaly(t, c) for t, c in top)
-            else:
-                top = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:3]
-                pattern_desc = ", ".join(f"{tag}({count}次)" for tag, count in top)
-        else:
-            top = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:3]
-            pattern_desc = ", ".join(f"{tag}({count}次)" for tag, count in top)
+        # 构建有语义的模式描述
+        observations = []
+        if tag_counts:
+            top_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+            tag_desc = ", ".join(f"{tag}({count}次)" for tag, count in top_tags)
+            observations.append(f"记忆标签频率: {tag_desc}")
+            # 解释标签含义
+            tag_meanings = {
+                "workspace": "被意识层采纳的内容",
+                "promoted": "从潜意识提升到意识的内容",
+                "system": "系统事件",
+                "input": "用户输入",
+                "exploration": "潜意识探索产出",
+                "pattern": "模式发现",
+                "insight": "洞察/思考结果",
+                "startup": "系统启动事件",
+            }
+            meaningful_tags = [f"{tag}({tag_meanings.get(tag, '其他')})" for tag, _ in top_tags]
+            observations.append(f"含义: {', '.join(meaningful_tags)}")
+
+        if source_counts:
+            top_sources = sorted(source_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+            src_desc = ", ".join(f"{src}({count}次)" for src, count in top_sources)
+            observations.append(f"记忆来源分布: {src_desc}")
+
+        if type_counts:
+            type_desc = ", ".join(f"{t}({c}条)" for t, c in sorted(type_counts.items(), key=lambda x: x[1], reverse=True))
+            observations.append(f"记忆类型: {type_desc}")
+
+        content = f"[{mode}] " + " | ".join(observations)
 
         # confidence 跟数据量和情绪正相关
         confidence = min(0.8, 0.3 + len(all_memories) / 50 + abs(valence) * 0.2)
@@ -296,7 +317,7 @@ class SubconsciousLayer:
         return SubAgentOutput(
             id=str(uuid.uuid4())[:8],
             agent_role=AgentRole.PATTERN,
-            content=f"[{mode}] 发现重复主题: {pattern_desc}",
+            content=content,
             confidence=confidence,
             emotion=self.emotion.state,
             timestamp=time.time(),
