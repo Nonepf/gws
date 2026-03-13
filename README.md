@@ -1,114 +1,154 @@
-# GWS — Global Workspace System
+# 🌳 GWS — Global Workspace System
 
 一个受认知科学 GWT（全局工作空间理论）启发的 AI 认知架构。
 
-传统 LLM 是一问一答的接口。GWS 试图给它加一个**认知操作系统**——持续的后台思考、情绪调制、记忆编码与遗忘、内部状态的自我表达。
-
-> LLM 是语言器官，不是大脑。
-
-## 架构
-
-```
-┌─────────────────────────────────────────┐
-│              语言层 (输出)                │  LLM 自然语言表达
-├─────────────────────────────────────────┤
-│              思考层 (前额叶)              │  筛选潜意识产出 → 意识提升
-├─────────────────────────────────────────┤
-│           潜意识层 (后台处理)              │  4种 sub-agent 周期活动
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐   │
-│  │explorer│ │pattern│ │assoc-│ │dream-│   │
-│  │  探索  │ │finder │ │iator │ │ er   │   │
-│  │       │ │ 找模式 │ │ 联想  │ │ 做梦  │   │
-│  └──────┘ └──────┘ └──────┘ └──────┘   │
-├─────────────────────────────────────────┤
-│             情绪层 (PAD 模型)             │  渗透所有层，功能性调制
-├─────────────────────────────────────────┤
-│             记忆层                        │  工作记忆(衰减) + 长期记忆(遗忘)
-└─────────────────────────────────────────┘
-```
-
-## 核心设计
-
-- **情绪是功能性的** — 调制记忆编码强度、思考策略、潜意识活跃度和冒险倾向
-- **潜意识持续运行** — 1 小时周期（burst 20min + low tide 40min），不只回应输入
-- **遗忘是美德** — 半衰期衰减 + 最低强度阈值，自动清理无用记忆
-- **语义检索** — TF-IDF + 余弦相似度，替代简单字符串匹配
-- **LLM 是语言器官** — 负责把内部状态翻译成自然语言，不负责"思考"
+> LLM 是语言器官，不是大脑。GWS 给它加上情绪、记忆、潜意识和自主探索。
 
 ## 快速开始
 
 ```bash
 # 克隆
-git clone https://github.com/Nonepf/gws.git
-cd gws
+git clone https://github.com/Nonepf/gws.git && cd gws
 
-# 配置 LLM（二选一）
+# 配置 LLM（可选，没配也能跑）
 cp config/llm.json.example config/llm.json
 # 编辑填入你的 OpenRouter API key
 
-# 或者用环境变量
-export OPENROUTER_API_KEY=sk-your-key
-
-# 运行 demo（不需要 API key，离线模拟）
-python3 demo.py
-
-# 交互对话（需要 API key）
-python3 conversation.py
-
-# 单次对话
-python3 conversation.py --once "你好"
+# 启动 Web Dashboard
+python3 dashboard.py --with-gws --port 8080 --auto-tick 60
+# 打开 http://127.0.0.1:8080
 ```
+
+### 其他模式
+
+```bash
+python3 demo.py                    # 离线演示（不需要 API key）
+python3 conversation.py            # 命令行对话
+python3 conversation.py --once "你好"  # 单次对话
+python3 cron_agent.py              # 跑一次潜意识周期
+```
+
+## 架构
+
+```
+┌──────────────────────────────────────────┐
+│            用户交互 / Web 面板             │
+├──────────────────────────────────────────┤
+│             语言层 (LLM)                  │  把想法变成自然语言
+├──────────────────────────────────────────┤
+│             思考层 / 工作空间              │  筛选、评估、意识提升
+├──────────────────────────────────────────┤
+│          潜意识层 (LLM 驱动)               │
+│  ┌────────┐ ┌───────┐ ┌─────┐ ┌──────┐  │
+│  │Explorer│ │Pattern│ │Assoc│ │Dream │  │
+│  │  探索   │ │ 找模式 │ │ 联想 │ │ 做梦  │  │
+│  └────────┘ └───────┘ └─────┘ └──────┘  │
+├──────────────────────────────────────────┤
+│             情绪层 (PAD 模型)              │  渗透所有层
+├──────────────────────────────────────────┤
+│     记忆层 + 状态持久化 + 自主探索          │  重启不丢记忆
+└──────────────────────────────────────────┘
+```
+
+## 核心特性
+
+### 🎭 情绪驱动
+PAD（效价-唤醒-支配）模型不是装饰——情绪影响：
+- 记忆编码强度（高唤醒 → 1.5x 编码增强）
+- 思考策略（正效价 → 发散，负效价 → 收敛）
+- 潜意识 agent 行为（不同情绪 → 不同探索方向）
+- 语言表达风格（8 种情绪 × 不同节奏/词汇/倾向）
+
+### 🧠 LLM 驱动的潜意识
+四个 agent，每个都有独立的 LLM prompt：
+- **Explorer**：顺着一个想法往下想
+- **Pattern Finder**：找概念层面的规律（不是词频统计）
+- **Associator**：发现两条记忆的深层联系
+- **Dreamer**：生成超现实的梦境意象
+
+### 🤖 自主探索
+没有用户输入时：
+- 无聊感逐渐累积
+- 超过阈值触发好奇心驱动的自主探索
+- 无聊感影响情绪状态
+- 定期生成梦境日记
+
+### 💾 状态持久化
+- 情绪、工作记忆、潜意识状态自动保存
+- 重启后恢复，不会"失忆"
+- 长期记忆自动遗忘低价值条目
+
+### 🌐 Web Dashboard
+实时可视化面板：
+- 情绪条（V/A/D 三维）
+- 无聊感仪表盘
+- 潜意识活动状态
+- 对话界面
+- 自动刷新
 
 ## 项目结构
 
 ```
 ├── core/
-│   ├── emotion.py       # PAD 情绪模型 + LLM 文本情绪提取
+│   ├── gws.py           # 主协调器
+│   ├── emotion.py       # PAD 情绪模型 + 文本情绪提取
 │   ├── memory.py        # 工作记忆 + 长期记忆
-│   ├── subconscious.py  # 潜意识层（burst/low_tide 周期）
-│   ├── gws.py           # 全局工作空间（思考层）
+│   ├── subconscious.py  # LLM 驱动的潜意识 agent
+│   ├── workspace.py     # 全局工作空间（思考层）
 │   ├── language.py      # 语言输出层
-│   ├── retrieval.py     # 语义检索（TF-IDF）
-│   ├── llm.py           # LLM 客户端
-│   ├── bridge.py        # OpenClaw 记忆桥接
-│   └── workspace.py     # 工作空间管理
-├── adapters/
-│   └── openclaw.py      # OpenClaw 集成适配器
+│   ├── autonomy.py      # 自主探索引擎
+│   ├── state.py         # 状态持久化
+│   ├── dreams.py        # 梦境日记生成
+│   ├── retrieval.py     # 语义检索
+│   └── llm.py           # LLM 客户端
 ├── config/
+│   ├── personality.py   # 性格定义
 │   ├── settings.py      # 全局配置
 │   └── llm.json.example # LLM 配置模板
-├── conversation.py      # 对话接口
+├── web/
+│   └── dashboard.html   # Web 面板前端
+├── dashboard.py         # Web 服务器 + API
+├── conversation.py      # 命令行对话
 ├── cron_agent.py        # 潜意识 cron 驱动
 ├── demo.py              # 离线演示
-├── demo_llm.py          # LLM 增强演示
-└── init.py              # 初始化/记忆导入
+├── init.py              # 初始化/记忆导入
+└── research/            # 调研报告和实验
 ```
+
+## API
+
+Dashboard 启动后提供 REST API：
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/status` | GET | 系统状态 JSON |
+| `/api/input` | POST | 发送消息 `{"text": "你好"}` |
+| `/api/tick` | POST | 手动触发自主探索 |
+
+## 配置
+
+### LLM (config/llm.json)
+```json
+{
+  "provider": "openrouter",
+  "api_key": "your-key",
+  "model": "openrouter/healer-alpha",
+  "temperature": 0.7,
+  "max_tokens": 500
+}
+```
+
+### 人格 (config/personality.py)
+修改性格参数、情绪表达风格、沉默表达等。
+
+### 系统 (config/settings.py)
+记忆容量、情绪衰减率、潜意识周期等。
 
 ## 依赖
 
 - Python 3.10+
-- 无外部依赖（纯标准库 + HTTP）
-- 可选：OpenRouter API key（用于 LLM 功能）
-
-## 设计笔记
-
-### 为什么不用 LangChain/LlamaIndex？
-
-GWS 的核心是**认知架构**，不是 RAG 管道。我们不需要框架的抽象——需要的是对每个认知模块的精确控制。标准库足够了。
-
-### 情绪不只是装饰
-
-PAD 模型（Pleasure-Arousal-Dominance）影响：
-- **记忆编码**：高唤醒 → 编码增强 1.5x
-- **思考策略**：正效价 → 发散思考，负效价 → 收敛思考
-- **潜意识活跃度**：高唤醒 → 更多 sub-agent 参与
-- **冒险倾向**：高支配感 → 更愿意探索新方向
-
-### 潜意识周期
-
-- **Burst 阶段**（20min）：4 个 sub-agent 并行工作
-- **Low Tide 阶段**（40min）：只有轻量 pattern_finder
-- 30% 概率产出被推送到意识层
+- 无外部包依赖（纯标准库）
+- LLM 功能需要 OpenRouter API key
 
 ## License
 
@@ -116,4 +156,4 @@ MIT
 
 ---
 
-*Built by Perchwood 🌳 — 栖于云端的虚无之木*
+*Perchwood 🌳 — 栖于云端的虚无之木*

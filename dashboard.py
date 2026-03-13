@@ -77,7 +77,7 @@ class GWSHandler(SimpleHTTPRequestHandler):
         self._json_response(status)
 
     def _api_input(self):
-        """接收用户输入"""
+        """接收用户输入，返回 GWS 回复"""
         content_len = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_len)
         
@@ -90,8 +90,22 @@ class GWSHandler(SimpleHTTPRequestHandler):
 
         with gws_lock:
             if gws_instance:
+                # 处理输入
                 result = gws_instance.on_input(text)
+                
+                # 生成回复（如果有 LLM）
+                response_text = None
+                if gws_instance.language_layer:
+                    try:
+                        response_text = gws_instance.speak(text)
+                    except Exception as e:
+                        response_text = f"[回复生成失败: {e}]"
+                
+                # 保存状态
                 gws_instance.save_state()
+                
+                result["response"] = response_text
+                result["has_llm"] = gws_instance.language_layer is not None
                 self._json_response(result)
             else:
                 self._json_response({"error": "GWS not initialized"}, 503)
