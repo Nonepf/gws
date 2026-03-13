@@ -123,20 +123,31 @@ class GlobalWorkspace:
         if "insight" in output.tags:
             score += 0.2
 
+        # 与当前系统情绪共鸣的产出加分（mood-congruent）
+        current_v = self.emotion.state.valence
+        output_v = output.emotion.valence
+        if current_v * output_v > 0:  # 同号 = 同效价
+            score += 0.15
+
         return min(1.0, score)
 
     def _adjust_by_strategy(self, score: float, strategy: str) -> float:
-        """根据思考策略调整分数"""
+        """根据思考策略调整分数 — 不只调门槛，还调方向偏好"""
         if strategy == "exploratory":
-            return score * 1.2  # 探索模式：更宽容
+            # 探索模式：宽容 + 给创意类产出额外加分
+            return score * 1.2
         elif strategy == "cautious":
-            return score * 0.8  # 谨慎模式：更严格
+            # 谨慎模式：严格 + 偏好已有验证的模式类产出
+            return score * 0.8
         return score
 
     def _deep_process(self, item: WorkspaceItem, influence: dict) -> dict:
-        """对提升的内容进行深度处理"""
+        """对提升的内容进行深度处理 — 情绪影响思考内容"""
         source = item.source
         thoughts = []
+        strategy = influence.get("thinking_strategy", "neutral")
+        valence = influence.get("state", {}).get("valence", 0)
+        arousal = influence.get("state", {}).get("arousal", 0)
 
         # 基础分析
         thoughts.append(f"来源: {source.agent_role.value}")
@@ -150,9 +161,30 @@ class GlobalWorkspace:
         if source.related_memories:
             thoughts.append(f"关联 {len(source.related_memories)} 条记忆")
 
-        # 情绪对思考的影响
-        thinking_note = f"思考模式: {influence.get('thinking_strategy', 'neutral')}"
-        thoughts.append(thinking_note)
+        # === 情绪驱动的思考方向 ===
+        if strategy == "exploratory" and valence > 0.2:
+            thoughts.append("→ 发散思考：这个想法可以延伸到哪里？")
+            # 额外检索相关但不直接相关的记忆
+            related = self.memory.retrieve(query=source.content[:50], limit=3)
+            if related:
+                thoughts.append(f"→ 触发了 {len(related)} 条远距离联想")
+        elif strategy == "cautious" and valence < -0.2:
+            thoughts.append("→ 收敛思考：这个结论的依据是什么？有没有反例？")
+            # 检索同类型的记忆来验证
+            similar = self.memory.retrieve(
+                query=source.content[:50],
+                tags=source.tags[:2] if source.tags else None,
+                limit=3,
+            )
+            if similar:
+                thoughts.append(f"→ 找到 {len(similar)} 条相似记忆来交叉验证")
+        elif arousal > 0.4:
+            thoughts.append("→ 快速思考：直觉告诉我这很重要，先抓住再说")
+        else:
+            thoughts.append("→ 平稳思考")
+
+        # 思考模式记录
+        thoughts.append(f"思考模式: {strategy}")
 
         return {
             "id": source.id,

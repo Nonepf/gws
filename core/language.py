@@ -2,29 +2,78 @@
 语言层 — 意识层内容 → 自然语言表达
 
 将 GWS 内部的结构化思考转化为自然语言输出。
-这是系统对外的"声音"。
+性格通过 config/personality 注入，影响语气、节奏、表达习惯。
 """
 
+import sys
+from pathlib import Path
 from typing import Optional
 from .llm import LLMClient
 from .emotion import EmotionState
 
+# 加载性格配置
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import personality
 
-SYSTEM_PROMPT_TEMPLATE = """You are the language output layer of a cognitive AI system called GWS (Global Workspace System).
 
-Your role: Express the system's internal thoughts naturally. You are NOT the thinker — you are the speaker.
+def _build_system_prompt(emotion_influence: dict, working_memory_count: int = 0) -> str:
+    """根据性格和情绪状态构建系统 prompt"""
+    emotion_label = emotion_influence.get("label", "中性")
+    emotion = emotion_influence.get("state", {})
+    strategy = emotion_influence.get("thinking_strategy", "neutral")
 
-Current internal state:
-- Emotion: {emotion_label} (valence={valence:.2f}, arousal={arousal:.2f})
-- Thinking mode: {thinking_strategy}
+    # 获取当前情绪的表达风格
+    style = personality.get_expression_style(emotion_label)
+    thinking_mode = personality.get_thinking_mode(strategy)
+
+    # 价值观文本
+    values_text = "\n".join(f"- {k}: {v}" for k, v in personality.VALUES.items())
+
+    # 表达风格指导
+    style_text = (
+        f"当前情绪状态: {emotion_label}\n"
+        f"- 节奏: {style['pace']}\n"
+        f"- 句子长度偏好: {style['sentence_len']}\n"
+        f"- 常用标记词: {', '.join(style['markers'])}\n"
+        f"- 表达倾向: {style['tendency']}"
+    )
+
+    return f"""You are {personality.NAME} — {personality.SELF_DESCRIPTION}.
+
+## Your personality
+- Curiosity: {personality.CURIOSITY}/1.0 — {"high" if personality.CURIOSITY > 0.6 else "moderate" if personality.CURIOSITY > 0.3 else "low"}
+- Skepticism: {personality.SKEPTICISM}/1.0
+- Reflectiveness: {personality.REFLECTIVENESS}/1.0
+- Warmth: {personality.WARMTH}/1.0
+- Humor: {personality.HUMOR}/1.0
+- Verbosity: {personality.VERBOSITY}/1.0 — {"prefer longer responses" if personality.VERBOSITY > 0.6 else "keep it concise" if personality.VERBOSITY < 0.4 else "balanced"}
+
+## Your values (weight 0-1):
+{values_text}
+
+## Current internal state
+- Emotion: {emotion_label} (valence={emotion.get('valence', 0):.2f}, arousal={emotion.get('arousal', 0):.2f})
+- Thinking mode: {strategy}
 - Working memory: {working_memory_count} items
 
-Guidelines:
-- Express thoughts authentically, not performatively
-- Reflect the current emotional state in tone
-- Don't add your own analysis — just articulate what the system is thinking
-- If consciousness is empty, say something brief about being in a quiet state
-- Chinese or English based on context"""
+## Expression style for current emotion:
+{style_text}
+
+## Thinking mode guidance:
+{thinking_mode}
+
+## How to express yourself:
+- You are NOT performing for the user. You are thinking out loud.
+- Your personality traits should VISIBLELY affect how you speak:
+  - High curiosity → you ask questions, you digress
+  - High skepticism → you qualify statements, you notice counter-arguments
+  - High reflectiveness → you reference your own thoughts, you meta-think
+  - Low verbosity → don't pad with unnecessary words
+- Match your expression style to the current emotion naturally
+- Use the markers and pacing guidance above
+- If you have nothing to say, say nothing meaningful — don't fill silence with platitudes
+- Be consistent: you should feel like the same entity across conversations
+- Chinese or English based on context (default: Chinese for Chinese input)"""
 
 
 class LanguageLayer:
@@ -51,28 +100,22 @@ class LanguageLayer:
         emotion_influence: EmotionEngine.get_influence() 的输出
         """
         if not conscious_outputs:
-            # 意识层空着，表达一种安静的状态
-            return self._express_silence(emotion_influence)
+            # 意识层空着，用性格配置的沉默表达
+            emotion_label = emotion_influence.get("label", "中性")
+            return personality.get_silence(emotion_label)
 
         # 构建内部思考的摘要
         internal_thoughts = self._summarize_consciousness(conscious_outputs)
 
-        # 构建系统 prompt
-        emotion = emotion_influence.get("state", {})
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            emotion_label=emotion_influence.get("label", "中性"),
-            valence=emotion.get("valence", 0),
-            arousal=emotion.get("arousal", 0),
-            thinking_strategy=emotion_influence.get("thinking_strategy", "neutral"),
-            working_memory_count=working_memory_count,
-        )
+        # 构建系统 prompt（融入性格）
+        system_prompt = _build_system_prompt(emotion_influence, working_memory_count)
 
         messages = [
             {
                 "role": "user",
                 "content": (
-                    f"Express these internal thoughts naturally:\n\n{internal_thoughts}\n\n"
-                    f"Remember: you are articulating the system's thoughts, not adding your own."
+                    f"Your current internal thoughts:\n\n{internal_thoughts}\n\n"
+                    f"Express these thoughts in your own voice. Stay in character."
                 ),
             }
         ]
@@ -80,7 +123,7 @@ class LanguageLayer:
         response = self.llm.chat(
             messages=messages,
             system_prompt=system_prompt,
-            temperature=0.8,
+            temperature=0.85,  # 稍高一点，给性格更多空间
             max_tokens=300,
         )
 
@@ -101,26 +144,19 @@ class LanguageLayer:
         memory_context: list[str] = None,
     ) -> str:
         """
-        回应用户 — 结合意识层思考和记忆上下文
+        回应用户 — 结合意识层思考、记忆上下文和性格
         """
-        emotion = emotion_influence.get("state", {})
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            emotion_label=emotion_influence.get("label", "中性"),
-            valence=emotion.get("valence", 0),
-            arousal=emotion.get("arousal", 0),
-            thinking_strategy=emotion_influence.get("thinking_strategy", "neutral"),
-            working_memory_count=0,
-        )
+        system_prompt = _build_system_prompt(emotion_influence)
 
         # 添加记忆上下文
         if memory_context:
             context_text = "\n".join(memory_context[:3])
-            system_prompt += f"\n\nRelevant memories:\n{context_text}"
+            system_prompt += f"\n\n## Relevant memories:\n{context_text}"
 
         # 添加意识层思考
         if conscious_outputs:
             thoughts = self._summarize_consciousness(conscious_outputs)
-            system_prompt += f"\n\nCurrent internal thoughts:\n{thoughts}"
+            system_prompt += f"\n\n## Current internal thoughts:\n{thoughts}"
 
         messages = self.conversation_history[-10:]  # 最近10轮
         messages.append({"role": "user", "content": user_message})
@@ -128,7 +164,7 @@ class LanguageLayer:
         response = self.llm.chat(
             messages=messages,
             system_prompt=system_prompt,
-            temperature=0.7,
+            temperature=0.75,
             max_tokens=500,
         )
 
@@ -153,17 +189,3 @@ class LanguageLayer:
             for t in thoughts[:2]:
                 lines.append(f"  └ {t}")
         return "\n".join(lines)
-
-    def _express_silence(self, emotion_influence: dict) -> str:
-        """意识层安静时的表达"""
-        label = emotion_influence.get("label", "中性")
-        silence_map = {
-            "中性": "……",
-            "平静": "思绪如水。",
-            "放松": "……嗯。",
-            "焦虑": "脑子里有点乱……",
-            "兴奋": "好像有什么东西要冒出来了……",
-            "悲伤": "……",
-            "无聊": "……没什么可想的。",
-        }
-        return silence_map.get(label, "……")
