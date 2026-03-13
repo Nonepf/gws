@@ -37,16 +37,22 @@ class EmotionState:
     def label(self) -> str:
         """粗略情绪标签"""
         v, a, d = self.valence, self.arousal, self.dominance
-        if v > 0.3 and a > 0.3:
-            return "兴奋" if d > 0.2 else "愉悦"
-        elif v > 0.3 and a < -0.3:
-            return "平静" if d > 0.2 else "放松"
-        elif v < -0.3 and a > 0.3:
-            return "愤怒" if d > 0.2 else "焦虑"
-        elif v < -0.3 and a < -0.3:
-            return "无聊" if d < -0.2 else "悲伤"
-        elif a > 0.4:
+        if v > 0.15 and a > 0.15:
+            return "兴奋" if d > 0.1 else "愉悦"
+        elif v > 0.15 and a < -0.15:
+            return "平静" if d > 0.1 else "放松"
+        elif v < -0.15 and a > 0.15:
+            return "愤怒" if d > 0.1 else "焦虑"
+        elif v < -0.15 and a < -0.15:
+            return "无聊" if d < -0.1 else "悲伤"
+        elif abs(v) < 0.05 and abs(a) < 0.05:
+            return "中性"
+        elif a > 0.2:
             return "专注"
+        elif v > 0.1:
+            return "轻快"
+        elif v < -0.1:
+            return "低落"
         else:
             return "中性"
 
@@ -111,24 +117,28 @@ class EmotionExtractor:
             return EmotionState()
 
         valence, arousal, dominance = 0.0, 0.0, 0.0
-        count = 0
+        total_weight = 0.0
 
         for word, (v, a, d) in cls.LEXICON.items():
             occurrences = text.count(word)
             if occurrences > 0:
-                valence += v * occurrences
-                arousal += a * occurrences
-                dominance += d * occurrences
-                count += occurrences
+                # 长词权重更高（更具体的表达）
+                weight = len(word) * occurrences
+                valence += v * weight
+                arousal += a * weight
+                dominance += d * weight
+                total_weight += weight
 
-        if count == 0:
+        if total_weight == 0:
             return EmotionState()
 
-        # 归一化：直接平均，保留更多信号
+        # 归一化，但保留更强的信号
+        # 不除以 count，除以 total_weight 但放大信号
+        scale = 1.5  # 放大系数，让情绪更容易影响系统
         return EmotionState(
-            valence=max(-1.0, min(1.0, valence / count)),
-            arousal=max(-1.0, min(1.0, arousal / count)),
-            dominance=max(-1.0, min(1.0, dominance / count)),
+            valence=max(-1.0, min(1.0, valence / total_weight * scale)),
+            arousal=max(-1.0, min(1.0, arousal / total_weight * scale)),
+            dominance=max(-1.0, min(1.0, dominance / total_weight * scale)),
         )
 
 
