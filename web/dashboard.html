@@ -3,286 +3,457 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GWS Dashboard</title>
+<title>GWS — 对话</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { 
-  font-family: -apple-system, 'Segoe UI', sans-serif;
-  background: #0a0a0f; color: #e0e0e0;
-  min-height: 100vh;
+:root {
+  --bg: #0d0d12; --surface: #16161f; --surface2: #1e1e2a;
+  --border: #2a2a3a; --text: #e0e0e8; --text2: #8888a0;
+  --accent: #6b8aff; --accent2: #4a6adf;
+  --green: #4ade80; --orange: #fb923c; --red: #f87171;
+  --user-bg: #1a2a1e; --gws-bg: #1a1a2e;
 }
-.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-h1 { font-size: 1.5em; margin-bottom: 20px; color: #fff; }
-h1 span { color: #6b8; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 16px; }
-.card {
-  background: #14141f; border-radius: 12px; padding: 20px;
-  border: 1px solid #222;
+/* Sidebar */
+.sidebar {
+  width: 300px; min-width: 300px; background: var(--surface);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  height: 100vh; overflow: hidden;
 }
-.card h2 { font-size: 1em; color: #888; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.sidebar-header {
+  padding: 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.sidebar-header h1 { font-size: 1.2em; }
+.sidebar-header h1 span { color: var(--accent); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+
+.sidebar-section {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.sidebar-section h3 {
+  font-size: 0.7em; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text2); margin-bottom: 10px;
+}
 
 /* Emotion */
-.emotion-display { text-align: center; padding: 20px 0; }
-.emotion-label { font-size: 2em; font-weight: bold; margin-bottom: 10px; }
-.emotion-bar { margin: 8px 0; }
-.emotion-bar label { display: inline-block; width: 60px; text-align: right; margin-right: 10px; color: #888; font-size: 0.85em; }
-.bar-track { display: inline-block; width: 200px; height: 8px; background: #222; border-radius: 4px; vertical-align: middle; position: relative; }
-.bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; position: absolute; top: 0; }
-.bar-fill.positive { background: #4a9; }
-.bar-fill.negative { background: #e55; }
-.bar-fill.neutral { background: #668; }
-.bar-center { position: absolute; left: 50%; top: -2px; width: 2px; height: 12px; background: #444; }
+.emotion-main { text-align: center; margin-bottom: 8px; }
+.emotion-label { font-size: 1.4em; font-weight: 700; }
+.pad-row { display: flex; align-items: center; margin: 4px 0; font-size: 0.8em; }
+.pad-label { width: 28px; color: var(--text2); }
+.pad-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; position: relative; margin: 0 8px; }
+.pad-fill { position: absolute; height: 100%; border-radius: 3px; transition: width 0.5s, left 0.5s; }
+.pad-val { width: 40px; text-align: right; color: var(--text2); font-size: 0.9em; }
 
 /* Boredom */
-.boredom-bar { margin: 10px 0; }
-.boredom-track { width: 100%; height: 20px; background: #222; border-radius: 10px; overflow: hidden; }
-.boredom-fill { height: 100%; background: linear-gradient(90deg, #4a9, #ea4, #e55); transition: width 0.5s; border-radius: 10px; }
-.feeling { color: #aaa; font-style: italic; margin-top: 8px; }
-
-/* Subconscious */
-.sub-agent { 
-  display: inline-block; padding: 4px 10px; margin: 3px; 
-  background: #1a1a2e; border-radius: 12px; font-size: 0.85em;
-  border: 1px solid #333;
-}
-.sub-agent.active { border-color: #6b8; color: #6b8; }
-
-/* Thoughts */
-.thought-item {
-  padding: 10px; margin: 6px 0; background: #1a1a2e; border-radius: 8px;
-  border-left: 3px solid #6b8; font-size: 0.9em; line-height: 1.5;
-}
-.thought-time { color: #666; font-size: 0.75em; }
-.thought-source { color: #6b8; font-size: 0.75em; margin-left: 8px; }
+.boredom-track { width: 100%; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; margin: 6px 0; }
+.boredom-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--orange), var(--red)); transition: width 0.5s; border-radius: 5px; }
+.feeling { font-size: 0.8em; color: var(--text2); font-style: italic; }
 
 /* Stats */
-.stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1a1a1a; }
-.stat:last-child { border: none; }
-.stat-label { color: #888; }
-.stat-value { color: #ddd; font-weight: 500; }
+.stat { display: flex; justify-content: space-between; font-size: 0.8em; padding: 3px 0; }
+.stat-label { color: var(--text2); }
+.stat-value { color: var(--text); font-weight: 500; }
 
-.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-.status-dot.ok { background: #4a9; }
-.status-dot.warn { background: #ea4; }
-.status-dot.err { background: #e55; }
+/* Subconscious */
+.sub-agents { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.sub-chip {
+  padding: 3px 8px; background: var(--surface2); border-radius: 10px;
+  font-size: 0.75em; color: var(--text2); border: 1px solid var(--border);
+}
+.sub-chip.active { border-color: var(--accent); color: var(--accent); }
+.sub-chip.thinking { border-color: var(--orange); color: var(--orange); animation: pulse 1.5s infinite; }
 
-#error { display: none; padding: 10px; background: #311; border-radius: 8px; color: #e88; margin-bottom: 16px; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* Memory list */
+.memory-list { max-height: 120px; overflow-y: auto; font-size: 0.75em; }
+.memory-item {
+  padding: 4px 6px; margin: 2px 0; background: var(--surface2);
+  border-radius: 4px; border-left: 2px solid var(--accent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.memory-item .mem-type { color: var(--text2); margin-right: 4px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Main Chat */
+.main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
+.chat-header {
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface);
+}
+.chat-header .left { display: flex; align-items: center; gap: 8px; }
+.chat-title { font-weight: 600; }
+.chat-subtitle { font-size: 0.8em; color: var(--text2); }
+
+.chat-area { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* Messages */
+.msg { margin: 8px 0; display: flex; flex-direction: column; }
+.msg.user { align-items: flex-end; }
+.msg.gws { align-items: flex-start; }
+.msg-bubble {
+  max-width: 75%; padding: 10px 14px; border-radius: 12px;
+  font-size: 0.92em; line-height: 1.5; word-break: break-word;
+}
+.msg.user .msg-bubble { background: var(--user-bg); border: 1px solid #2a3a2e; border-bottom-right-radius: 4px; }
+.msg.gws .msg-bubble { background: var(--gws-bg); border: 1px solid #2a2a3e; border-bottom-left-radius: 4px; }
+.msg-meta { font-size: 0.7em; color: var(--text2); margin-top: 4px; padding: 0 4px; display: flex; gap: 8px; }
+
+/* Subconscious activity in chat */
+.sub-activity {
+  max-width: 80%; margin: 8px 0; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; font-size: 0.82em; color: var(--text2);
+  border-left: 3px solid var(--accent);
+}
+.sub-activity .sub-title { font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 4px; }
+.sub-activity .sub-content { line-height: 1.4; }
+
+/* System message */
+.sys-msg { text-align: center; font-size: 0.75em; color: var(--text2); margin: 12px 0; }
+.sys-msg span { background: var(--surface); padding: 4px 12px; border-radius: 10px; }
+
+/* Input area */
+.input-area {
+  padding: 12px 20px; border-top: 1px solid var(--border);
+  display: flex; gap: 10px; background: var(--surface);
+}
+.input-area input {
+  flex: 1; padding: 10px 14px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text); font-size: 0.9em; outline: none;
+  transition: border-color 0.2s;
+}
+.input-area input:focus { border-color: var(--accent); }
+.input-area button {
+  padding: 10px 20px; background: var(--accent); border: none;
+  border-radius: 10px; color: #fff; font-weight: 600; cursor: pointer;
+  transition: background 0.2s;
+}
+.input-area button:hover { background: var(--accent2); }
+
+/* Typing indicator */
+.typing { display: none; padding: 8px 14px; }
+.typing.show { display: flex; gap: 4px; align-items: center; }
+.typing span { font-size: 0.75em; color: var(--text2); margin-right: 4px; }
+.typing .dot { width: 6px; height: 6px; background: var(--text2); border-radius: 50%; animation: bounce 1.4s infinite; }
+.typing .dot:nth-child(2) { animation-delay: 0.2s; }
+.typing .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
+
+/* Right panel */
+.right-panel {
+  width: 260px; min-width: 260px; background: var(--surface);
+  border-left: 1px solid var(--border); height: 100vh; overflow-y: auto;
+  padding: 12px;
+}
+.right-panel h3 {
+  font-size: 0.7em; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text2); margin: 12px 0 8px;
+}
+.right-panel h3:first-child { margin-top: 0; }
+
+/* Thought stream */
+.thought-item {
+  padding: 8px 10px; margin: 4px 0; background: var(--surface2);
+  border-radius: 8px; font-size: 0.78em; line-height: 1.4;
+  border-left: 2px solid var(--border);
+}
+.thought-item .th-source { font-size: 0.8em; color: var(--accent); margin-bottom: 2px; }
+.thought-item .th-time { font-size: 0.75em; color: var(--text2); }
+
+/* Responsive */
+@media (max-width: 1100px) { .right-panel { display: none; } }
+@media (max-width: 768px) { .sidebar { display: none; } }
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>🌳 <span>GWS</span> Dashboard</h1>
-  <div id="error"></div>
-  
-  <div class="grid">
-    <!-- Emotion Card -->
-    <div class="card">
-      <h2>🎭 情绪</h2>
-      <div class="emotion-display">
-        <div class="emotion-label" id="emotion-label">--</div>
-        <div class="emotion-bar">
-          <label>V 效价</label>
-          <div class="bar-track"><div class="bar-center"></div><div class="bar-fill" id="bar-v" style="width:50%"></div></div>
-        </div>
-        <div class="emotion-bar">
-          <label>A 唤醒</label>
-          <div class="bar-track"><div class="bar-center"></div><div class="bar-fill" id="bar-a" style="width:50%"></div></div>
-        </div>
-        <div class="emotion-bar">
-          <label>D 支配</label>
-          <div class="bar-track"><div class="bar-center"></div><div class="bar-fill" id="bar-d" style="width:50%"></div></div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Autonomy Card -->
-    <div class="card">
-      <h2>🤖 自主状态</h2>
-      <div class="boredom-bar">
-        <label style="color:#888">无聊感</label>
-        <div class="boredom-track"><div class="boredom-fill" id="boredom-fill"></div></div>
-      </div>
-      <div class="feeling" id="feeling">--</div>
-      <div style="margin-top: 16px;">
-        <div class="stat"><span class="stat-label">距上次交互</span><span class="stat-value" id="time-since">--</span></div>
-        <div class="stat"><span class="stat-label">探索次数</span><span class="stat-value" id="explore-count">--</span></div>
-        <div class="stat"><span class="stat-label">好奇的话题</span><span class="stat-value" id="curiosity">--</span></div>
-      </div>
-    </div>
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <span class="status-dot" id="conn-dot"></span>
+    <h1>🌳 <span>GWS</span></h1>
+  </div>
 
-    <!-- Subconscious Card -->
-    <div class="card">
-      <h2>🌊 潜意识</h2>
-      <div id="sub-agents"></div>
-      <div style="margin-top:12px">
-        <div class="stat"><span class="stat-label">阶段</span><span class="stat-value" id="sub-phase">--</span></div>
-        <div class="stat"><span class="stat-label">本周期产出</span><span class="stat-value" id="sub-outputs">--</span></div>
-        <div class="stat"><span class="stat-label">总周期数</span><span class="stat-value" id="sub-cycles">--</span></div>
-      </div>
+  <!-- Emotion -->
+  <div class="sidebar-section">
+    <h3>🎭 情绪状态</h3>
+    <div class="emotion-main">
+      <div class="emotion-label" id="em-label">中性</div>
     </div>
+    <div class="pad-row">
+      <span class="pad-label">V</span>
+      <div class="pad-bar"><div class="pad-fill" id="bar-v" style="left:50%;width:0"></div></div>
+      <span class="pad-val" id="val-v">0.00</span>
+    </div>
+    <div class="pad-row">
+      <span class="pad-label">A</span>
+      <div class="pad-bar"><div class="pad-fill" id="bar-a" style="left:50%;width:0"></div></div>
+      <span class="pad-val" id="val-a">0.00</span>
+    </div>
+    <div class="pad-row">
+      <span class="pad-label">D</span>
+      <div class="pad-bar"><div class="pad-fill" id="bar-d" style="left:50%;width:0"></div></div>
+      <span class="pad-val" id="val-d">0.00</span>
+    </div>
+    <div class="stat" style="margin-top:6px">
+      <span class="stat-label">策略</span>
+      <span class="stat-value" id="em-strategy">neutral</span>
+    </div>
+  </div>
 
-    <!-- System Card -->
-    <div class="card">
-      <h2>📊 系统</h2>
-      <div class="stat"><span class="stat-label">运行 ticks</span><span class="stat-value" id="ticks">--</span></div>
-      <div class="stat"><span class="stat-label">处理输入</span><span class="stat-value" id="inputs">--</span></div>
-      <div class="stat"><span class="stat-label">工作记忆</span><span class="stat-value" id="wm">--</span></div>
-      <div class="stat"><span class="stat-label">长期记忆</span><span class="stat-value" id="ltm">--</span></div>
-      <div class="stat"><span class="stat-label">思考策略</span><span class="stat-value" id="strategy">--</span></div>
-      <div class="stat"><span class="stat-label">LLM</span><span class="stat-value" id="llm-status">--</span></div>
-    </div>
+  <!-- Autonomy -->
+  <div class="sidebar-section">
+    <h3>🤖 自主状态</h3>
+    <div class="stat"><span class="stat-label">无聊感</span><span class="stat-value" id="au-boredom">0%</span></div>
+    <div class="boredom-track"><div class="boredom-fill" id="au-bar" style="width:0%"></div></div>
+    <div class="feeling" id="au-feeling">充实</div>
+    <div class="stat" style="margin-top:6px"><span class="stat-label">距上次交互</span><span class="stat-value" id="au-time">-</span></div>
+    <div class="stat"><span class="stat-label">探索次数</span><span class="stat-value" id="au-count">0</span></div>
+  </div>
 
-    <!-- Consciousness Card (full width) -->
-    <div class="card" style="grid-column: 1 / -1;">
-      <h2>💭 对话</h2>
-      <div id="chat-history" style="max-height:400px;overflow-y:auto;margin-bottom:12px;"></div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="chat-input" placeholder="说点什么..." 
-               style="flex:1;padding:10px 14px;background:#1a1a2e;border:1px solid #333;border-radius:8px;color:#e0e0e0;font-size:0.95em;outline:none;"
-               onkeydown="if(event.key==='Enter')sendInput()">
-        <button onclick="sendInput()" 
-                style="padding:10px 20px;background:#6b8;border:none;border-radius:8px;color:#000;font-weight:600;cursor:pointer;">
-          发送
-        </button>
-      </div>
+  <!-- Subconscious -->
+  <div class="sidebar-section">
+    <h3>🌊 潜意识</h3>
+    <div class="stat"><span class="stat-label">阶段</span><span class="stat-value" id="sc-phase">idle</span></div>
+    <div class="stat"><span class="stat-label">本周期产出</span><span class="stat-value" id="sc-outputs">0</span></div>
+    <div class="sub-agents" id="sc-agents">
+      <span class="sub-chip">explorer</span>
+      <span class="sub-chip">pattern</span>
+      <span class="sub-chip">associator</span>
+      <span class="sub-chip">dreamer</span>
     </div>
+  </div>
+
+  <!-- Memory -->
+  <div class="sidebar-section" style="flex:1;border-bottom:none;overflow:hidden;display:flex;flex-direction:column">
+    <h3>🧠 记忆 (<span id="mem-count">0</span>)</h3>
+    <div class="stat"><span class="stat-label">工作记忆</span><span class="stat-value" id="mem-wm">0</span></div>
+    <div class="stat"><span class="stat-label">长期记忆</span><span class="stat-value" id="mem-ltm">0</span></div>
+    <h3 style="margin-top:10px">最近记忆</h3>
+    <div class="memory-list" id="mem-list"></div>
   </div>
 </div>
 
+<!-- Main Chat -->
+<div class="main">
+  <div class="chat-header">
+    <div class="left">
+      <span class="status-dot" id="llm-dot"></span>
+      <div>
+        <div class="chat-title">对话</div>
+        <div class="chat-subtitle" id="llm-status">离线模式</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-area" id="chat">
+    <div class="sys-msg"><span>GWS 已启动</span></div>
+  </div>
+
+  <div class="typing" id="typing">
+    <span>GWS 在思考</span>
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+  </div>
+
+  <div class="input-area">
+    <input type="text" id="input" placeholder="说点什么..." autocomplete="off">
+    <button onclick="send()" id="send-btn">发送</button>
+  </div>
+</div>
+
+<!-- Right Panel: Internal Activity -->
+<div class="right-panel">
+  <h3>💭 内部活动</h3>
+  <div id="thoughts"></div>
+  <h3>📊 系统</h3>
+  <div class="stat"><span class="stat-label">运行 ticks</span><span class="stat-value" id="sys-ticks">0</span></div>
+  <div class="stat"><span class="stat-label">处理输入</span><span class="stat-value" id="sys-inputs">0</span></div>
+  <div class="stat"><span class="stat-label">LLM</span><span class="stat-value" id="sys-llm">-</span></div>
+</div>
+
 <script>
-const API = '/api/status';
+const API = '';
+let historyLoaded = false;
 
-async function refresh() {
-  try {
-    const resp = await fetch(API);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    update(data);
-    document.getElementById('error').style.display = 'none';
-  } catch (e) {
-    document.getElementById('error').style.display = 'block';
-    document.getElementById('error').textContent = `连接失败: ${e.message}`;
+// === API ===
+async function api(path, opts = {}) {
+  const resp = await fetch(API + path, {
+    headers: {'Content-Type': 'application/json'},
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  return resp.json();
+}
+
+// === Render Helpers ===
+function el(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html) e.innerHTML = html;
+  return e;
+}
+
+function formatTime(sec) {
+  if (!sec) return '-';
+  if (sec < 60) return sec + '秒';
+  if (sec < 3600) return Math.floor(sec/60) + '分';
+  return Math.floor(sec/3600) + '时' + Math.floor((sec%3600)/60) + '分';
+}
+
+// === Chat ===
+const chat = document.getElementById('chat');
+
+function addMsg(text, role, extra) {
+  const msg = el('div', 'msg ' + role);
+  const bubble = el('div', 'msg-bubble', text.replace(/\n/g, '<br>'));
+  msg.appendChild(bubble);
+  if (extra) {
+    msg.appendChild(el('div', 'msg-meta', extra));
   }
+  chat.appendChild(msg);
+  chat.scrollTop = chat.scrollHeight;
 }
 
-function update(d) {
-  // Emotion
-  const em = d.emotion || {};
-  const st = em.state || {};
-  document.getElementById('emotion-label').textContent = em.label || '--';
-  
-  const v = (st.valence || 0) * 50 + 50;
-  const a = (st.arousal || 0) * 50 + 50;
-  const dd = (st.dominance || 0) * 50 + 50;
-  
-  setBar('bar-v', v, st.valence);
-  setBar('bar-a', a, st.arousal);
-  setBar('bar-d', dd, st.dominance);
-
-  // Autonomy
-  const auto = d.autonomy || {};
-  document.getElementById('boredom-fill').style.width = `${(auto.boredom || 0) * 100}%`;
-  document.getElementById('feeling').textContent = auto.feeling || '--';
-  document.getElementById('time-since').textContent = formatTime(auto.time_since_interaction || 0);
-  document.getElementById('explore-count').textContent = auto.exploration_count || 0;
-  document.getElementById('curiosity').textContent = (auto.curiosity_topics || []).slice(-3).join(', ') || '无';
-
-  // Subconscious
-  const sub = d.subconscious || {};
-  document.getElementById('sub-phase').textContent = sub.phase || '--';
-  document.getElementById('sub-outputs').textContent = sub.outputs_this_cycle || 0;
-  document.getElementById('sub-cycles').textContent = sub.total_cycles || 0;
-  
-  const agentsEl = document.getElementById('sub-agents');
-  const agents = ['explorer', 'pattern_finder', 'associator', 'dreamer'];
-  agentsEl.innerHTML = agents.map(a => 
-    `<span class="sub-agent">${a}</span>`
-  ).join('');
-
-  // System
-  document.getElementById('ticks').textContent = d.uptime_ticks || 0;
-  document.getElementById('inputs').textContent = d.inputs_processed || 0;
-  document.getElementById('wm').textContent = d.working_memory || 0;
-  
-  const ltm = d.long_term_memory || {};
-  document.getElementById('ltm').textContent = ltm.total || 0;
-  document.getElementById('strategy').textContent = em.thinking_strategy || '--';
-  document.getElementById('llm-status').innerHTML = sub.has_llm 
-    ? '<span class="status-dot ok"></span>已连接' 
-    : '<span class="status-dot warn"></span>离线模式';
-
-  // Thoughts - would need separate endpoint, placeholder for now
+function addSubActivity(source, content) {
+  const div = el('div', 'sub-activity');
+  div.innerHTML = `<div class="sub-title">🌊 ${source}</div><div class="sub-content">${content.substring(0, 200)}${content.length > 200 ? '...' : ''}</div>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
 }
 
-function setBar(id, pct, rawVal) {
-  const el = document.getElementById(id);
-  el.style.width = `${Math.max(0, Math.min(100, pct))}%`;
-  el.className = 'bar-fill ' + (rawVal > 0.1 ? 'positive' : rawVal < -0.1 ? 'negative' : 'neutral');
+function addSysMsg(text) {
+  const div = el('div', 'sys-msg', `<span>${text}</span>`);
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
 }
 
-function formatTime(seconds) {
-  if (seconds < 60) return `${seconds}秒`;
-  if (seconds < 3600) return `${Math.floor(seconds/60)}分钟`;
-  return `${Math.floor(seconds/3600)}小时${Math.floor((seconds%3600)/60)}分`;
-}
-
-// Refresh every 5 seconds
-refresh();
-loadHistory();
-setInterval(refresh, 5000);
-
-// Chat history
-async function loadHistory() {
-  try {
-    const resp = await fetch('/api/history');
-    const data = await resp.json();
-    (data.history || []).forEach(msg => {
-      addMessage(msg.text, msg.role === 'user', msg.emotion ? `情绪: ${msg.emotion}` : null, false);
-    });
-  } catch (e) {}
-}
-
-// Chat
-function addMessage(text, isUser, extra, doScroll=true) {
-  const history = document.getElementById('chat-history');
-  const div = document.createElement('div');
-  div.style.cssText = `padding:8px 12px;margin:6px 0;border-radius:8px;max-width:80%;${isUser 
-    ? 'background:#2a3a2e;margin-left:auto;border-right:3px solid #6b8;' 
-    : 'background:#1a1a2e;border-left:3px solid #888;'}`;
-  div.innerHTML = `<div style="font-size:0.85em;color:#888;margin-bottom:4px;">${isUser ? '你' : '🌳 GWS'}</div>${text}`;
-  if (extra) div.innerHTML += `<div style="font-size:0.75em;color:#666;margin-top:4px;">${extra}</div>`;
-  history.appendChild(div);
-  if (doScroll) history.scrollTop = history.scrollHeight;
-}
-
-async function sendInput() {
-  const input = document.getElementById('chat-input');
+// === Send ===
+async function send() {
+  const input = document.getElementById('input');
   const text = input.value.trim();
   if (!text) return;
   
   input.value = '';
-  addMessage(text, true);
+  addMsg(text, 'user');
   
+  const typing = document.getElementById('typing');
+  typing.classList.add('show');
+  document.getElementById('send-btn').disabled = true;
+
   try {
-    const resp = await fetch('/api/input', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({text})
-    });
-    const data = await resp.json();
-    
-    // Show GWS response
-    const reply = data.response || '(没有回复 — 需要配置 LLM)';
+    const data = await api('/api/input', { method: 'POST', body: {text} });
+    typing.classList.remove('show');
+    document.getElementById('send-btn').disabled = false;
+
+    const reply = data.response || '（没有回复 — 需要配置 LLM）';
     const em = data.emotion_label || '';
-    addMessage(reply, false, `情绪: ${em}`);
+    addMsg(reply, 'gws', `情绪: ${em}`);
     
-    // Refresh status
     refresh();
   } catch (e) {
-    addMessage(`发送失败: ${e.message}`, false);
+    typing.classList.remove('show');
+    document.getElementById('send-btn').disabled = false;
+    addMsg('发送失败: ' + e.message, 'gws');
   }
 }
+
+document.getElementById('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+
+// === Load History ===
+async function loadHistory() {
+  if (historyLoaded) return;
+  historyLoaded = true;
+  try {
+    const data = await api('/api/history');
+    (data.history || []).forEach(msg => {
+      if (msg.role === 'user') {
+        addMsg(msg.text, 'user');
+      } else {
+        addMsg(msg.text, 'gws', msg.emotion ? `情绪: ${msg.emotion}` : null);
+      }
+    });
+  } catch (e) {}
+}
+
+// === Refresh Status ===
+async function refresh() {
+  try {
+    const d = await api('/api/status');
+    
+    // Connection
+    document.getElementById('conn-dot').style.background = 'var(--green)';
+    
+    // Emotion
+    const em = d.emotion || {};
+    const st = em.state || {};
+    document.getElementById('em-label').textContent = em.label || '-';
+    setPad('v', st.valence || 0);
+    setPad('a', st.arousal || 0);
+    setPad('d', st.dominance || 0);
+    document.getElementById('em-strategy').textContent = em.thinking_strategy || '-';
+
+    // Autonomy
+    const auto = d.autonomy || {};
+    const bored = (auto.boredom || 0) * 100;
+    document.getElementById('au-boredom').textContent = bored.toFixed(0) + '%';
+    document.getElementById('au-bar').style.width = bored + '%';
+    document.getElementById('au-feeling').textContent = auto.feeling || '-';
+    document.getElementById('au-time').textContent = formatTime(auto.time_since_interaction);
+    document.getElementById('au-count').textContent = auto.exploration_count || 0;
+
+    // Subconscious
+    const sub = d.subconscious || {};
+    document.getElementById('sc-phase').textContent = sub.phase || '-';
+    document.getElementById('sc-outputs').textContent = sub.outputs_this_cycle || 0;
+    document.getElementById('sys-llm').textContent = sub.has_llm ? '✓ 已连接' : '离线';
+    document.getElementById('llm-dot').style.background = sub.has_llm ? 'var(--green)' : 'var(--orange)';
+    document.getElementById('llm-status').textContent = sub.has_llm ? 'LLM 已连接' : '离线模式';
+    
+    // Memory
+    const ltm = d.long_term_memory || {};
+    document.getElementById('mem-count').textContent = ltm.total || 0;
+    document.getElementById('mem-wm').textContent = d.working_memory || 0;
+    document.getElementById('mem-ltm').textContent = ltm.total || 0;
+
+    // System
+    document.getElementById('sys-ticks').textContent = d.uptime_ticks || 0;
+    document.getElementById('sys-inputs').textContent = d.inputs_processed || 0;
+
+  } catch (e) {
+    document.getElementById('conn-dot').style.background = 'var(--red)';
+  }
+}
+
+function setPad(dim, val) {
+  const pct = val * 50;
+  const fill = document.getElementById('bar-' + dim);
+  if (val >= 0) {
+    fill.style.left = '50%';
+    fill.style.width = pct + '%';
+  } else {
+    fill.style.left = (50 + pct) + '%';
+    fill.style.width = (-pct) + '%';
+  }
+  fill.style.background = val > 0.1 ? 'var(--green)' : val < -0.1 ? 'var(--red)' : 'var(--accent)';
+  document.getElementById('val-' + dim).textContent = val.toFixed(2);
+}
+
+// === Init ===
+loadHistory();
+refresh();
+setInterval(refresh, 5000);
 </script>
 </body>
 </html>
