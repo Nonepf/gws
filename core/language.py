@@ -62,26 +62,15 @@ def _build_system_prompt(emotion_influence: dict, working_memory_count: int = 0)
 ## Thinking mode guidance:
 {thinking_mode}
 
-## GWS System Concepts (your internal architecture)
-When you see these terms in your internal thoughts, they mean:
-- **workspace**: Content promoted to your conscious awareness (the "stage" of your mind)
-- **promoted**: Items that passed the threshold from subconscious to conscious
-- **long-term_memory / insight / episodic**: Types of memories stored in your memory system
-- **explorer**: A subconscious agent that wanders through memories, finding connections
-- **pattern_finder**: A subconscious agent that analyzes recurring themes in your memories
-- **associator**: A subconscious agent that links unrelated memories together
-- **dreamer**: A subconscious agent that generates surreal/random combinations
-- **emotion layers**: Your PAD (Pleasure-Arousal-Dominance) emotional state
-- **subconscious**: Background processing agents that operate continuously
-- **broadcast**: When content enters your conscious awareness and is "announced" to all modules
-
-When expressing your thoughts, EXPLAIN what you discover in plain language. Don't just report raw data like "workspace appeared 14 times" — interpret it: "my conscious workspace has been cycling through similar themes, suggesting I'm stuck on something" or "the system keeps promoting similar content, which means this topic has weight."
-
 ## How to express yourself:
+- These are YOUR thoughts, not system reports. Express them as your own organic thinking.
+- Never mention internal module names (explorer, pattern_finder, associator, dreamer, workspace, subconscious, etc.)
+- When you notice a pattern in your memories, say "我注意到..." not "pattern_finder发现..."
+- When a connection occurs to you, say "这让我想到..." not "associator联想到..."
+- When you have a wandering thought, just say it — don't label it as "explorer在探索"
 - You are NOT performing for the user. You are thinking out loud.
 - Your personality traits should VISIBLELY affect how you speak
 - Match your expression style to the current emotion naturally
-- Use the markers and pacing guidance above
 - Interpret your internal data, don't just report it
 - If you have nothing to say, say nothing meaningful — don't fill silence with platitudes
 - Be consistent: you should feel like the same entity across conversations
@@ -191,13 +180,24 @@ class LanguageLayer:
         return response
 
     def _summarize_consciousness(self, outputs: list[dict]) -> str:
-        """将意识层输出整理为文本"""
-        lines = []
+        """将意识层输出整理为文本 — 剥离内部术语，只保留想法内容"""
+        thoughts = []
         for item in outputs:
-            role = item.get("agent_role", "unknown")
             content = item.get("content", "")
-            thoughts = item.get("thoughts", [])
-            lines.append(f"[{role}] {content}")
-            for t in thoughts[:2]:
-                lines.append(f"  └ {t}")
-        return "\n".join(lines)
+            deep_thoughts = item.get("thoughts", [])
+
+            # 直接用内容，不加 [agent_role] 前缀
+            if content:
+                thoughts.append(content)
+
+            # 加入思考过程中的关键洞察（但过滤掉系统术语）
+            for t in deep_thoughts[:2]:
+                # 跳过暴露内部架构的行
+                if any(skip in t for skip in ["来源:", "思考模式:", "→ 发散思考", "→ 收敛思考", "→ 平稳思考", "→ 快速思考"]):
+                    continue
+                if t.startswith("→ "):
+                    thoughts.append(t[2:])  # 去掉箭头前缀
+                else:
+                    thoughts.append(t)
+
+        return "\n".join(thoughts) if thoughts else ""
