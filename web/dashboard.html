@@ -3,457 +3,387 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GWS — 对话</title>
+<title>GWS</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-:root {
-  --bg: #0d0d12; --surface: #16161f; --surface2: #1e1e2a;
-  --border: #2a2a3a; --text: #e0e0e8; --text2: #8888a0;
-  --accent: #6b8aff; --accent2: #4a6adf;
-  --green: #4ade80; --orange: #fb923c; --red: #f87171;
-  --user-bg: #1a2a1e; --gws-bg: #1a1a2e;
-}
-html, body { height: 100%; overflow: hidden; }
-body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; }
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a10;--s1:#12121a;--s2:#1a1a26;--s3:#22222e;--bdr:#2a2a3a;--t1:#e0e0e8;--t2:#7878a0;--accent:#6b8aff;--green:#4ade80;--orange:#fb923c;--red:#f87171}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);display:flex}
+*{scrollbar-width:thin;scrollbar-color:var(--bdr) transparent}
 
-/* Sidebar */
-.sidebar {
-  width: 300px; min-width: 300px; background: var(--surface);
-  border-right: 1px solid var(--border); display: flex; flex-direction: column;
-  height: 100vh; overflow: hidden;
-}
-.sidebar-header {
-  padding: 16px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 10px;
-}
-.sidebar-header h1 { font-size: 1.2em; }
-.sidebar-header h1 span { color: var(--accent); }
-.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+/* Layout */
+.panel{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.left{width:280px;min-width:280px;background:var(--s1);border-right:1px solid var(--bdr)}
+.center{flex:1;min-width:0}
+.right{width:300px;min-width:300px;background:var(--s1);border-left:1px solid var(--bdr)}
 
-.sidebar-section {
-  padding: 12px 16px; border-bottom: 1px solid var(--border);
-}
-.sidebar-section h3 {
-  font-size: 0.7em; text-transform: uppercase; letter-spacing: 1.5px;
-  color: var(--text2); margin-bottom: 10px;
-}
+/* Panel headers */
+.ph{padding:10px 14px;border-bottom:1px solid var(--bdr);font-size:.7em;text-transform:uppercase;letter-spacing:1.5px;color:var(--t2);display:flex;align-items:center;gap:6px}
+.ph .dot{width:6px;height:6px;border-radius:50%}
+.dot.on{background:var(--green)}.dot.off{background:var(--orange)}.dot.err{background:var(--red)}
+.ph-title{flex:1}
+
+/* Section */
+.sec{padding:10px 14px;border-bottom:1px solid var(--bdr)}
+.sec-title{font-size:.65em;text-transform:uppercase;letter-spacing:1.5px;color:var(--t2);margin-bottom:8px}
 
 /* Emotion */
-.emotion-main { text-align: center; margin-bottom: 8px; }
-.emotion-label { font-size: 1.4em; font-weight: 700; }
-.pad-row { display: flex; align-items: center; margin: 4px 0; font-size: 0.8em; }
-.pad-label { width: 28px; color: var(--text2); }
-.pad-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; position: relative; margin: 0 8px; }
-.pad-fill { position: absolute; height: 100%; border-radius: 3px; transition: width 0.5s, left 0.5s; }
-.pad-val { width: 40px; text-align: right; color: var(--text2); font-size: 0.9em; }
+.em-label{font-size:1.3em;font-weight:700;text-align:center;margin-bottom:6px}
+.pad{display:flex;align-items:center;margin:3px 0;font-size:.78em}
+.pad-l{width:24px;color:var(--t2);font-size:.9em}
+.pad-bar{flex:1;height:5px;background:var(--bdr);border-radius:3px;position:relative;margin:0 6px}
+.pad-f{position:absolute;height:100%;border-radius:3px;transition:all .5s}
+.pad-v{width:36px;text-align:right;color:var(--t2);font-size:.85em}
 
 /* Boredom */
-.boredom-track { width: 100%; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; margin: 6px 0; }
-.boredom-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--orange), var(--red)); transition: width 0.5s; border-radius: 5px; }
-.feeling { font-size: 0.8em; color: var(--text2); font-style: italic; }
+.bored-track{width:100%;height:8px;background:var(--bdr);border-radius:4px;overflow:hidden;margin:4px 0}
+.bored-f{height:100%;background:linear-gradient(90deg,var(--green),var(--orange),var(--red));transition:width .5s;border-radius:4px}
+.feeling{font-size:.75em;color:var(--t2);font-style:italic}
 
 /* Stats */
-.stat { display: flex; justify-content: space-between; font-size: 0.8em; padding: 3px 0; }
-.stat-label { color: var(--text2); }
-.stat-value { color: var(--text); font-weight: 500; }
+.st{display:flex;justify-content:space-between;font-size:.75em;padding:2px 0}
+.st-l{color:var(--t2)}.st-v{color:var(--t1);font-weight:500}
 
-/* Subconscious */
-.sub-agents { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.sub-chip {
-  padding: 3px 8px; background: var(--surface2); border-radius: 10px;
-  font-size: 0.75em; color: var(--text2); border: 1px solid var(--border);
-}
-.sub-chip.active { border-color: var(--accent); color: var(--accent); }
-.sub-chip.thinking { border-color: var(--orange); color: var(--orange); animation: pulse 1.5s infinite; }
+/* Agent chips */
+.chips{display:flex;flex-wrap:wrap;gap:3px}
+.chip{padding:2px 7px;background:var(--s2);border-radius:8px;font-size:.7em;color:var(--t2);border:1px solid var(--bdr)}
+.chip.active{border-color:var(--accent);color:var(--accent)}
 
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+/* Memory */
+.mem-list{max-height:150px;overflow-y:auto}
+.mem-item{padding:4px 6px;margin:2px 0;background:var(--s2);border-radius:4px;border-left:2px solid var(--accent);font-size:.72em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* Memory list */
-.memory-list { max-height: 120px; overflow-y: auto; font-size: 0.75em; }
-.memory-item {
-  padding: 4px 6px; margin: 2px 0; background: var(--surface2);
-  border-radius: 4px; border-left: 2px solid var(--accent);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.memory-item .mem-type { color: var(--text2); margin-right: 4px; }
+/* === Center: Chat === */
+.chat-header{padding:10px 16px;border-bottom:1px solid var(--bdr);background:var(--s1);display:flex;align-items:center;gap:8px}
+.chat-header .name{font-weight:600}
+.chat-header .sub{font-size:.75em;color:var(--t2)}
+.chat-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px}
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.msg{max-width:80%;padding:8px 12px;border-radius:10px;font-size:.88em;line-height:1.5}
+.msg.u{align-self:flex-end;background:#1a2a1e;border:1px solid #2a3a2e;border-bottom-right-radius:3px}
+.msg.g{align-self:flex-start;background:var(--s2);border:1px solid var(--bdr);border-bottom-left-radius:3px}
+.msg-meta{font-size:.7em;color:var(--t2);margin-top:3px}
+.sys{text-align:center;font-size:.72em;color:var(--t2);margin:4px 0}
+.sys span{background:var(--s2);padding:3px 10px;border-radius:8px}
 
-/* Main Chat */
-.main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
-.chat-header {
-  padding: 12px 20px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-  background: var(--surface);
-}
-.chat-header .left { display: flex; align-items: center; gap: 8px; }
-.chat-title { font-weight: 600; }
-.chat-subtitle { font-size: 0.8em; color: var(--text2); }
+/* Subconscious / Consciousness cards in chat */
+.sc-card{max-width:85%;align-self:flex-start;background:var(--s2);border:1px solid var(--bdr);border-left:3px solid var(--accent);border-radius:8px;padding:8px 12px;font-size:.8em}
+.sc-card .sc-tag{font-size:.7em;color:var(--accent);margin-bottom:2px;font-weight:600}
+.sc-card .sc-body{color:var(--t2);line-height:1.4}
+.cn-card{max-width:85%;align-self:flex-start;background:var(--s2);border:1px solid var(--bdr);border-left:3px solid var(--orange);border-radius:8px;padding:8px 12px;font-size:.8em}
+.cn-card .cn-tag{font-size:.7em;color:var(--orange);margin-bottom:2px;font-weight:600}
+.cn-card .cn-body{line-height:1.4}
 
-.chat-area { flex: 1; overflow-y: auto; padding: 20px; }
+.typing{display:none;padding:6px 12px;align-self:flex-start}
+.typing.show{display:flex;align-items:center;gap:4px}
+.typing span{font-size:.75em;color:var(--t2)}
+.tdot{width:5px;height:5px;background:var(--t2);border-radius:50%;animation:tb 1.4s infinite}
+.tdot:nth-child(2){animation-delay:.2s}.tdot:nth-child(3){animation-delay:.4s}
+@keyframes tb{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
 
-/* Messages */
-.msg { margin: 8px 0; display: flex; flex-direction: column; }
-.msg.user { align-items: flex-end; }
-.msg.gws { align-items: flex-start; }
-.msg-bubble {
-  max-width: 75%; padding: 10px 14px; border-radius: 12px;
-  font-size: 0.92em; line-height: 1.5; word-break: break-word;
-}
-.msg.user .msg-bubble { background: var(--user-bg); border: 1px solid #2a3a2e; border-bottom-right-radius: 4px; }
-.msg.gws .msg-bubble { background: var(--gws-bg); border: 1px solid #2a2a3e; border-bottom-left-radius: 4px; }
-.msg-meta { font-size: 0.7em; color: var(--text2); margin-top: 4px; padding: 0 4px; display: flex; gap: 8px; }
+.input-bar{padding:10px 16px;border-top:1px solid var(--bdr);background:var(--s1);display:flex;gap:8px}
+.input-bar input{flex:1;padding:8px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--t1);font-size:.88em;outline:none}
+.input-bar input:focus{border-color:var(--accent)}
+.input-bar button{padding:8px 16px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-weight:600;cursor:pointer}
 
-/* Subconscious activity in chat */
-.sub-activity {
-  max-width: 80%; margin: 8px 0; padding: 10px 14px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; font-size: 0.82em; color: var(--text2);
-  border-left: 3px solid var(--accent);
-}
-.sub-activity .sub-title { font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 4px; }
-.sub-activity .sub-content { line-height: 1.4; }
+/* === Right: Streams === */
+.stream{flex:1;overflow-y:auto;padding:8px}
+.stream-item{padding:6px 8px;margin:4px 0;background:var(--s2);border-radius:6px;font-size:.75em;line-height:1.4}
+.stream-item .si-tag{font-size:.85em;color:var(--accent);font-weight:600}
+.stream-item .si-time{color:var(--t2);font-size:.85em;float:right}
+.stream-item .si-body{color:var(--t2);margin-top:2px}
+.stream-item.conscious{border-left:2px solid var(--orange)}
+.stream-item.conscious .si-tag{color:var(--orange)}
+.stream-item.summary{border-left:2px solid var(--green)}
+.stream-item.summary .si-tag{color:var(--green)}
 
-/* System message */
-.sys-msg { text-align: center; font-size: 0.75em; color: var(--text2); margin: 12px 0; }
-.sys-msg span { background: var(--surface); padding: 4px 12px; border-radius: 10px; }
+.daemon-bar{padding:8px 14px;border-bottom:1px solid var(--bdr);font-size:.75em}
+.daemon-bar .db-row{display:flex;justify-content:space-between;padding:2px 0}
 
-/* Input area */
-.input-area {
-  padding: 12px 20px; border-top: 1px solid var(--border);
-  display: flex; gap: 10px; background: var(--surface);
-}
-.input-area input {
-  flex: 1; padding: 10px 14px; background: var(--surface2);
-  border: 1px solid var(--border); border-radius: 10px;
-  color: var(--text); font-size: 0.9em; outline: none;
-  transition: border-color 0.2s;
-}
-.input-area input:focus { border-color: var(--accent); }
-.input-area button {
-  padding: 10px 20px; background: var(--accent); border: none;
-  border-radius: 10px; color: #fff; font-weight: 600; cursor: pointer;
-  transition: background 0.2s;
-}
-.input-area button:hover { background: var(--accent2); }
-
-/* Typing indicator */
-.typing { display: none; padding: 8px 14px; }
-.typing.show { display: flex; gap: 4px; align-items: center; }
-.typing span { font-size: 0.75em; color: var(--text2); margin-right: 4px; }
-.typing .dot { width: 6px; height: 6px; background: var(--text2); border-radius: 50%; animation: bounce 1.4s infinite; }
-.typing .dot:nth-child(2) { animation-delay: 0.2s; }
-.typing .dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
-
-/* Right panel */
-.right-panel {
-  width: 260px; min-width: 260px; background: var(--surface);
-  border-left: 1px solid var(--border); height: 100vh; overflow-y: auto;
-  padding: 12px;
-}
-.right-panel h3 {
-  font-size: 0.7em; text-transform: uppercase; letter-spacing: 1.5px;
-  color: var(--text2); margin: 12px 0 8px;
-}
-.right-panel h3:first-child { margin-top: 0; }
-
-/* Thought stream */
-.thought-item {
-  padding: 8px 10px; margin: 4px 0; background: var(--surface2);
-  border-radius: 8px; font-size: 0.78em; line-height: 1.4;
-  border-left: 2px solid var(--border);
-}
-.thought-item .th-source { font-size: 0.8em; color: var(--accent); margin-bottom: 2px; }
-.thought-item .th-time { font-size: 0.75em; color: var(--text2); }
-
-/* Responsive */
-@media (max-width: 1100px) { .right-panel { display: none; } }
-@media (max-width: 768px) { .sidebar { display: none; } }
+@media(max-width:1100px){.right{display:none}}
+@media(max-width:768px){.left{display:none}}
 </style>
 </head>
 <body>
 
-<!-- Sidebar -->
-<div class="sidebar">
-  <div class="sidebar-header">
-    <span class="status-dot" id="conn-dot"></span>
-    <h1>🌳 <span>GWS</span></h1>
+<!-- LEFT: Status Panel -->
+<div class="left panel">
+  <div class="ph"><span class="dot on" id="conn-dot"></span><span class="ph-title">🌳 GWS 状态</span></div>
+
+  <div class="sec">
+    <div class="sec-title">🎭 情绪</div>
+    <div class="em-label" id="em-label">中性</div>
+    <div class="pad"><span class="pad-l">V</span><div class="pad-bar"><div class="pad-f" id="pf-v"></div></div><span class="pad-v" id="pv-v">0</span></div>
+    <div class="pad"><span class="pad-l">A</span><div class="pad-bar"><div class="pad-f" id="pf-a"></div></div><span class="pad-v" id="pv-a">0</span></div>
+    <div class="pad"><span class="pad-l">D</span><div class="pad-bar"><div class="pad-f" id="pf-d"></div></div><span class="pad-v" id="pv-d">0</span></div>
+    <div class="st" style="margin-top:4px"><span class="st-l">策略</span><span class="st-v" id="em-strat">neutral</span></div>
   </div>
 
-  <!-- Emotion -->
-  <div class="sidebar-section">
-    <h3>🎭 情绪状态</h3>
-    <div class="emotion-main">
-      <div class="emotion-label" id="em-label">中性</div>
-    </div>
-    <div class="pad-row">
-      <span class="pad-label">V</span>
-      <div class="pad-bar"><div class="pad-fill" id="bar-v" style="left:50%;width:0"></div></div>
-      <span class="pad-val" id="val-v">0.00</span>
-    </div>
-    <div class="pad-row">
-      <span class="pad-label">A</span>
-      <div class="pad-bar"><div class="pad-fill" id="bar-a" style="left:50%;width:0"></div></div>
-      <span class="pad-val" id="val-a">0.00</span>
-    </div>
-    <div class="pad-row">
-      <span class="pad-label">D</span>
-      <div class="pad-bar"><div class="pad-fill" id="bar-d" style="left:50%;width:0"></div></div>
-      <span class="pad-val" id="val-d">0.00</span>
-    </div>
-    <div class="stat" style="margin-top:6px">
-      <span class="stat-label">策略</span>
-      <span class="stat-value" id="em-strategy">neutral</span>
+  <div class="sec">
+    <div class="sec-title">🤖 自主</div>
+    <div class="st"><span class="st-l">无聊感</span><span class="st-v" id="au-b">0%</span></div>
+    <div class="bored-track"><div class="bored-f" id="au-bar"></div></div>
+    <div class="feeling" id="au-feel">充实</div>
+    <div class="st"><span class="st-l">探索</span><span class="st-v" id="au-exp">0次</span></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">🌊 潜意识</div>
+    <div class="st"><span class="st-l">阶段</span><span class="st-v" id="sc-ph">idle</span></div>
+    <div class="st"><span class="st-l">产出</span><span class="st-v" id="sc-out">0</span></div>
+    <div class="chips" id="sc-chips">
+      <span class="chip">explorer</span><span class="chip">pattern</span><span class="chip">associator</span><span class="chip">dreamer</span>
     </div>
   </div>
 
-  <!-- Autonomy -->
-  <div class="sidebar-section">
-    <h3>🤖 自主状态</h3>
-    <div class="stat"><span class="stat-label">无聊感</span><span class="stat-value" id="au-boredom">0%</span></div>
-    <div class="boredom-track"><div class="boredom-fill" id="au-bar" style="width:0%"></div></div>
-    <div class="feeling" id="au-feeling">充实</div>
-    <div class="stat" style="margin-top:6px"><span class="stat-label">距上次交互</span><span class="stat-value" id="au-time">-</span></div>
-    <div class="stat"><span class="stat-label">探索次数</span><span class="stat-value" id="au-count">0</span></div>
-  </div>
-
-  <!-- Subconscious -->
-  <div class="sidebar-section">
-    <h3>🌊 潜意识</h3>
-    <div class="stat"><span class="stat-label">阶段</span><span class="stat-value" id="sc-phase">idle</span></div>
-    <div class="stat"><span class="stat-label">本周期产出</span><span class="stat-value" id="sc-outputs">0</span></div>
-    <div class="sub-agents" id="sc-agents">
-      <span class="sub-chip">explorer</span>
-      <span class="sub-chip">pattern</span>
-      <span class="sub-chip">associator</span>
-      <span class="sub-chip">dreamer</span>
-    </div>
-  </div>
-
-  <!-- Memory -->
-  <div class="sidebar-section" style="flex:1;border-bottom:none;overflow:hidden;display:flex;flex-direction:column">
-    <h3>🧠 记忆 (<span id="mem-count">0</span>)</h3>
-    <div class="stat"><span class="stat-label">工作记忆</span><span class="stat-value" id="mem-wm">0</span></div>
-    <div class="stat"><span class="stat-label">长期记忆</span><span class="stat-value" id="mem-ltm">0</span></div>
-    <h3 style="margin-top:10px">最近记忆</h3>
-    <div class="memory-list" id="mem-list"></div>
+  <div class="sec" style="flex:1;border-bottom:none;display:flex;flex-direction:column;overflow:hidden">
+    <div class="sec-title">🧠 记忆 (<span id="mem-n">0</span>)</div>
+    <div class="st"><span class="st-l">工作</span><span class="st-v" id="mem-wm">0</span></div>
+    <div class="st"><span class="st-l">长期</span><span class="st-v" id="mem-ltm">0</span></div>
+    <div class="sec-title" style="margin-top:8px">最近记忆</div>
+    <div class="mem-list" id="mem-list"></div>
   </div>
 </div>
 
-<!-- Main Chat -->
-<div class="main">
+<!-- CENTER: Chat -->
+<div class="center panel">
   <div class="chat-header">
-    <div class="left">
-      <span class="status-dot" id="llm-dot"></span>
-      <div>
-        <div class="chat-title">对话</div>
-        <div class="chat-subtitle" id="llm-status">离线模式</div>
-      </div>
+    <div>
+      <div class="name">对话</div>
+      <div class="sub" id="llm-label">离线模式</div>
     </div>
   </div>
-
-  <div class="chat-area" id="chat">
-    <div class="sys-msg"><span>GWS 已启动</span></div>
-  </div>
-
-  <div class="typing" id="typing">
-    <span>GWS 在思考</span>
-    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-  </div>
-
-  <div class="input-area">
-    <input type="text" id="input" placeholder="说点什么..." autocomplete="off">
-    <button onclick="send()" id="send-btn">发送</button>
+  <div class="chat-body" id="chat"></div>
+  <div class="typing" id="typing"><span>思考中</span><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div>
+  <div class="input-bar">
+    <input type="text" id="inp" placeholder="说点什么..." autocomplete="off">
+    <button onclick="send()" id="sbtn">发送</button>
   </div>
 </div>
 
-<!-- Right Panel: Internal Activity -->
-<div class="right-panel">
-  <h3>💭 内部活动</h3>
-  <div id="thoughts"></div>
-  <h3>📊 系统</h3>
-  <div class="stat"><span class="stat-label">运行 ticks</span><span class="stat-value" id="sys-ticks">0</span></div>
-  <div class="stat"><span class="stat-label">处理输入</span><span class="stat-value" id="sys-inputs">0</span></div>
-  <div class="stat"><span class="stat-label">LLM</span><span class="stat-value" id="sys-llm">-</span></div>
+<!-- RIGHT: Streams -->
+<div class="right panel">
+  <div class="ph"><span class="dot off" id="daemon-dot"></span><span class="ph-title">📡 实时流</span></div>
+  <div class="daemon-bar" id="daemon-bar">
+    <div class="db-row"><span class="st-l">守护进程</span><span class="st-v" id="dm-state">未运行</span></div>
+    <div class="db-row"><span class="st-l">周期</span><span class="st-v" id="dm-cycle">-</span></div>
+  </div>
+  <div class="stream" id="stream"></div>
 </div>
 
 <script>
-const API = '';
-let historyLoaded = false;
+const $ = id => document.getElementById(id);
+const chat = $('chat'), stream = $('stream');
+let histLoaded = false;
 
-// === API ===
-async function api(path, opts = {}) {
-  const resp = await fetch(API + path, {
-    headers: {'Content-Type': 'application/json'},
-    ...opts,
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  return resp.json();
+async function api(path, opts={}) {
+  const r = await fetch(path, {headers:{'Content-Type':'application/json'},...opts,body:opts.body?JSON.stringify(opts.body):undefined});
+  return r.json();
 }
 
-// === Render Helpers ===
-function el(tag, cls, html) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (html) e.innerHTML = html;
-  return e;
-}
+function fmt(t){if(!t)return'-';if(t<60)return t+'s';if(t<3600)return Math.floor(t/60)+'m';return Math.floor(t/3600)+'h'}
 
-function formatTime(sec) {
-  if (!sec) return '-';
-  if (sec < 60) return sec + '秒';
-  if (sec < 3600) return Math.floor(sec/60) + '分';
-  return Math.floor(sec/3600) + '时' + Math.floor((sec%3600)/60) + '分';
-}
+function scroll(el){el.scrollTop=el.scrollHeight}
 
 // === Chat ===
-const chat = document.getElementById('chat');
-
-function addMsg(text, role, extra) {
-  const msg = el('div', 'msg ' + role);
-  const bubble = el('div', 'msg-bubble', text.replace(/\n/g, '<br>'));
-  msg.appendChild(bubble);
-  if (extra) {
-    msg.appendChild(el('div', 'msg-meta', extra));
-  }
-  chat.appendChild(msg);
-  chat.scrollTop = chat.scrollHeight;
+function addMsg(text, role, meta) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + (role === 'user' ? 'u' : 'g');
+  d.innerHTML = text.replace(/\n/g,'<br>') + (meta ? `<div class="msg-meta">${meta}</div>` : '');
+  chat.appendChild(d);
+  scroll(chat);
 }
 
-function addSubActivity(source, content) {
-  const div = el('div', 'sub-activity');
-  div.innerHTML = `<div class="sub-title">🌊 ${source}</div><div class="sub-content">${content.substring(0, 200)}${content.length > 200 ? '...' : ''}</div>`;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+function addSys(text) {
+  const d = document.createElement('div');
+  d.className = 'sys';
+  d.innerHTML = `<span>${text}</span>`;
+  chat.appendChild(d);
+  scroll(chat);
 }
 
-function addSysMsg(text) {
-  const div = el('div', 'sys-msg', `<span>${text}</span>`);
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+function addScCard(tag, body) {
+  const d = document.createElement('div');
+  d.className = 'sc-card';
+  d.innerHTML = `<div class="sc-tag">🌊 ${tag}</div><div class="sc-body">${body.substring(0,200)}</div>`;
+  chat.appendChild(d);
+  scroll(chat);
 }
 
-// === Send ===
+function addCnCard(body) {
+  const d = document.createElement('div');
+  d.className = 'cn-card';
+  d.innerHTML = `<div class="cn-tag">💭 意识</div><div class="cn-body">${body.substring(0,200)}</div>`;
+  chat.appendChild(d);
+  scroll(chat);
+}
+
 async function send() {
-  const input = document.getElementById('input');
-  const text = input.value.trim();
-  if (!text) return;
-  
-  input.value = '';
+  const inp = $('inp'), text = inp.value.trim();
+  if(!text) return;
+  inp.value = '';
   addMsg(text, 'user');
+  $('typing').classList.add('show');
+  $('sbtn').disabled = true;
   
-  const typing = document.getElementById('typing');
-  typing.classList.add('show');
-  document.getElementById('send-btn').disabled = true;
-
   try {
-    const data = await api('/api/input', { method: 'POST', body: {text} });
-    typing.classList.remove('show');
-    document.getElementById('send-btn').disabled = false;
-
-    const reply = data.response || '（没有回复 — 需要配置 LLM）';
-    const em = data.emotion_label || '';
-    addMsg(reply, 'gws', `情绪: ${em}`);
+    // 1. 发送输入，立即返回 task_id
+    const d = await api('/api/input', {method:'POST',body:{text}});
+    const taskId = d.task_id;
+    if(!taskId) throw new Error('No task_id');
     
-    refresh();
-  } catch (e) {
-    typing.classList.remove('show');
-    document.getElementById('send-btn').disabled = false;
-    addMsg('发送失败: ' + e.message, 'gws');
+    // 2. 轮询等待结果
+    let result = null;
+    for(let i = 0; i < 60; i++) { // 最多等2分钟
+      await sleep(2000);
+      const task = await api('/api/task?id=' + taskId);
+      if(task.status === 'done') { result = task; break; }
+      if(task.status === 'error') { throw new Error(task.error); }
+    }
+    
+    $('typing').classList.remove('show');
+    $('sbtn').disabled = false;
+    
+    if(result) {
+      addMsg(result.response||'（无回复）', 'gws', `情绪: ${result.emotion||'?'}`);
+      (result.subconscious||[]).forEach(s => addScCard(s.role, s.content));
+      (result.consciousness||[]).forEach(c => addCnCard(c));
+      refresh();
+    } else {
+      addMsg('回复超时', 'gws');
+    }
+  } catch(e) {
+    $('typing').classList.remove('show');
+    $('sbtn').disabled = false;
+    addMsg('错误: '+e.message, 'gws');
   }
 }
 
-document.getElementById('input').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-});
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// === Load History ===
-async function loadHistory() {
-  if (historyLoaded) return;
-  historyLoaded = true;
-  try {
-    const data = await api('/api/history');
-    (data.history || []).forEach(msg => {
-      if (msg.role === 'user') {
-        addMsg(msg.text, 'user');
-      } else {
-        addMsg(msg.text, 'gws', msg.emotion ? `情绪: ${msg.emotion}` : null);
-      }
-    });
-  } catch (e) {}
-}
+$('inp').addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()} });
 
-// === Refresh Status ===
+// === Status Refresh ===
 async function refresh() {
   try {
     const d = await api('/api/status');
-    
-    // Connection
-    document.getElementById('conn-dot').style.background = 'var(--green)';
-    
-    // Emotion
-    const em = d.emotion || {};
-    const st = em.state || {};
-    document.getElementById('em-label').textContent = em.label || '-';
-    setPad('v', st.valence || 0);
-    setPad('a', st.arousal || 0);
-    setPad('d', st.dominance || 0);
-    document.getElementById('em-strategy').textContent = em.thinking_strategy || '-';
-
-    // Autonomy
-    const auto = d.autonomy || {};
-    const bored = (auto.boredom || 0) * 100;
-    document.getElementById('au-boredom').textContent = bored.toFixed(0) + '%';
-    document.getElementById('au-bar').style.width = bored + '%';
-    document.getElementById('au-feeling').textContent = auto.feeling || '-';
-    document.getElementById('au-time').textContent = formatTime(auto.time_since_interaction);
-    document.getElementById('au-count').textContent = auto.exploration_count || 0;
-
-    // Subconscious
-    const sub = d.subconscious || {};
-    document.getElementById('sc-phase').textContent = sub.phase || '-';
-    document.getElementById('sc-outputs').textContent = sub.outputs_this_cycle || 0;
-    document.getElementById('sys-llm').textContent = sub.has_llm ? '✓ 已连接' : '离线';
-    document.getElementById('llm-dot').style.background = sub.has_llm ? 'var(--green)' : 'var(--orange)';
-    document.getElementById('llm-status').textContent = sub.has_llm ? 'LLM 已连接' : '离线模式';
-    
-    // Memory
-    const ltm = d.long_term_memory || {};
-    document.getElementById('mem-count').textContent = ltm.total || 0;
-    document.getElementById('mem-wm').textContent = d.working_memory || 0;
-    document.getElementById('mem-ltm').textContent = ltm.total || 0;
-
-    // System
-    document.getElementById('sys-ticks').textContent = d.uptime_ticks || 0;
-    document.getElementById('sys-inputs').textContent = d.inputs_processed || 0;
-
-  } catch (e) {
-    document.getElementById('conn-dot').style.background = 'var(--red)';
-  }
+    $('conn-dot').className = 'dot on';
+    const em=d.emotion||{}, st=em.state||{};
+    $('em-label').textContent = em.label||'-';
+    setPad('v',st.valence||0); setPad('a',st.arousal||0); setPad('d',st.dominance||0);
+    $('em-strat').textContent = em.thinking_strategy||'-';
+    const au=d.autonomy||{}, b=(au.boredom||0)*100;
+    $('au-b').textContent = b.toFixed(0)+'%';
+    $('au-bar').style.width = b+'%';
+    $('au-feel').textContent = au.feeling||'-';
+    $('au-exp').textContent = (au.exploration_count||0)+'次';
+    const sub=d.subconscious||{};
+    $('sc-ph').textContent = sub.phase||'-';
+    $('sc-out').textContent = sub.outputs_this_cycle||0;
+    $('llm-label').textContent = sub.has_llm?'LLM 已连接':'离线模式';
+    $('mem-n').textContent = (d.long_term_memory||{}).total||0;
+    $('mem-wm').textContent = d.working_memory||0;
+    $('mem-ltm').textContent = (d.long_term_memory||{}).total||0;
+  } catch(e) { $('conn-dot').className = 'dot err'; }
 }
 
-function setPad(dim, val) {
-  const pct = val * 50;
-  const fill = document.getElementById('bar-' + dim);
-  if (val >= 0) {
-    fill.style.left = '50%';
-    fill.style.width = pct + '%';
-  } else {
-    fill.style.left = (50 + pct) + '%';
-    fill.style.width = (-pct) + '%';
-  }
-  fill.style.background = val > 0.1 ? 'var(--green)' : val < -0.1 ? 'var(--red)' : 'var(--accent)';
-  document.getElementById('val-' + dim).textContent = val.toFixed(2);
+function setPad(dim,v) {
+  const pct=v*50, f=$('pf-'+dim);
+  if(v>=0){f.style.left='50%';f.style.width=pct+'%'}else{f.style.left=(50+pct)+'%';f.style.width=(-pct)+'%'}
+  f.style.background = v>0.1?'var(--green)':v<-0.1?'var(--red)':'var(--accent)';
+  $('pv-'+dim).textContent = v.toFixed(2);
+}
+
+// === Streams ===
+let lastScCount=0, lastCnCount=0;
+
+async function refreshStreams() {
+  // Subconscious stream
+  try {
+    const sc = await api('/api/subconscious');
+    const entries = sc.entries||[];
+    if(entries.length > lastScCount) {
+      for(let i=lastScCount; i<entries.length; i++) {
+        const e = entries[i];
+        if(e.type==='cycle_summary') {
+          addStreamItem('summary', `周期: ${e.subconscious_outputs||0}潜意识 ${e.conscious_outputs||0}意识 ${e.emotion||''}`, '', e.timestamp);
+        } else if(e.role) {
+          addStreamItem('sc', e.role, e.content, e.time);
+        }
+      }
+      lastScCount = entries.length;
+    }
+  } catch(e){}
+
+  // Consciousness stream
+  try {
+    const cn = await api('/api/consciousness');
+    const entries = cn.entries||[];
+    if(entries.length > lastCnCount) {
+      for(let i=lastCnCount; i<entries.length; i++) {
+        const e = entries[i];
+        addStreamItem('cn', e.agent_role||'conscious', e.content, e.time);
+      }
+      lastCnCount = entries.length;
+    }
+  } catch(e){}
+
+  // Daemon status
+  try {
+    const dm = await api('/api/daemon');
+    $('dm-state').textContent = dm.state||'未运行';
+    $('dm-cycle').textContent = dm.cycle_seconds ? dm.cycle_seconds+'s' : '-';
+    $('daemon-dot').className = 'dot ' + (dm.state==='running'?'on':'off');
+  } catch(e){}
+}
+
+function addStreamItem(type, tag, body, time) {
+  const d = document.createElement('div');
+  d.className = 'stream-item ' + (type==='cn'?'conscious':type==='summary'?'summary':'');
+  const ts = time ? new Date(typeof time==='number'?time*1000:time).toLocaleTimeString('zh',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+  d.innerHTML = `<span class="si-time">${ts}</span><div class="si-tag">${tag}</div><div class="si-body">${(body||'').substring(0,150)}</div>`;
+  stream.appendChild(d);
+  scroll(stream);
+  // Keep stream manageable
+  while(stream.children.length > 100) stream.removeChild(stream.firstChild);
+}
+
+// === Load History ===
+async function loadHistory() {
+  if(histLoaded) return; histLoaded=true;
+  try {
+    const d = await api('/api/history');
+    (d.history||[]).forEach(m => {
+      if(m.role==='user') addMsg(m.text,'user');
+      else addMsg(m.text,'gws',m.emotion?`情绪:${m.emotion}`:null);
+    });
+  } catch(e){}
+}
+
+// === Memory ===
+async function refreshMemory() {
+  try {
+    const d = await api('/api/memory');
+    const list = $('mem-list');
+    list.innerHTML = '';
+    (d.long_term_memory||[]).slice(0,15).forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'mem-item';
+      div.innerHTML = `<span class="mem-type">[${m.type}]</span> ${m.content}`;
+      div.title = m.content;
+      list.appendChild(div);
+    });
+  } catch(e){}
 }
 
 // === Init ===
 loadHistory();
 refresh();
+refreshMemory();
+refreshStreams();
 setInterval(refresh, 5000);
+setInterval(refreshStreams, 3000);
+setInterval(refreshMemory, 30000);
 </script>
 </body>
 </html>
