@@ -30,6 +30,27 @@ from urllib.parse import urlparse, parse_qs
 gws_instance = None
 gws_lock = threading.Lock()
 
+# 聊天历史（服务器端持久化）
+chat_history = []
+chat_history_file = None
+CHAT_HISTORY_MAX = 100
+
+
+def save_chat():
+    """保存聊天历史"""
+    if chat_history_file:
+        chat_history_file.write_text(json.dumps(chat_history[-CHAT_HISTORY_MAX:], ensure_ascii=False, indent=2))
+
+
+def load_chat():
+    """加载聊天历史"""
+    global chat_history
+    if chat_history_file and chat_history_file.exists():
+        try:
+            chat_history = json.loads(chat_history_file.read_text())
+        except:
+            chat_history = []
+
 
 class GWSHandler(SimpleHTTPRequestHandler):
     """处理 HTTP 请求"""
@@ -41,6 +62,8 @@ class GWSHandler(SimpleHTTPRequestHandler):
             self._serve_file('web/dashboard.html', 'text/html')
         elif parsed.path == '/api/status':
             self._api_status()
+        elif parsed.path == '/api/history':
+            self._api_history()
         else:
             self.send_error(404)
 
@@ -76,6 +99,10 @@ class GWSHandler(SimpleHTTPRequestHandler):
         
         self._json_response(status)
 
+    def _api_history(self):
+        """返回聊天历史"""
+        self._json_response({"history": chat_history})
+
     def _api_input(self):
         """接收用户输入，返回 GWS 回复"""
         content_len = int(self.headers.get('Content-Length', 0))
@@ -103,6 +130,13 @@ class GWSHandler(SimpleHTTPRequestHandler):
                 
                 # 保存状态
                 gws_instance.save_state()
+                
+                # 保存聊天历史
+                chat_history.append({"role": "user", "text": text, "time": time.time()})
+                if response_text:
+                    chat_history.append({"role": "gws", "text": response_text, "time": time.time(),
+                                         "emotion": result.get("emotion_label", "")})
+                save_chat()
                 
                 result["response"] = response_text
                 result["has_llm"] = gws_instance.language_layer is not None
@@ -167,6 +201,11 @@ def main():
         
         gws_instance = GWS(workspace_dir=args.gws_data)
         gws_instance.start()
+        
+        # 设置聊天历史文件
+        global chat_history_file
+        chat_history_file = gws_instance.workspace_dir / "chat_history.json"
+        load_chat()
         
         if args.llm:
             config_path = Path(__file__).parent / 'config' / 'llm.json'

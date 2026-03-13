@@ -229,10 +229,22 @@ function formatTime(seconds) {
 
 // Refresh every 5 seconds
 refresh();
+loadHistory();
 setInterval(refresh, 5000);
 
+// Chat history
+async function loadHistory() {
+  try {
+    const resp = await fetch('/api/history');
+    const data = await resp.json();
+    (data.history || []).forEach(msg => {
+      addMessage(msg.text, msg.role === 'user', msg.emotion ? `情绪: ${msg.emotion}` : null, false);
+    });
+  } catch (e) {}
+}
+
 // Chat
-function addMessage(text, isUser, extra) {
+function addMessage(text, isUser, extra, doScroll=true) {
   const history = document.getElementById('chat-history');
   const div = document.createElement('div');
   div.style.cssText = `padding:8px 12px;margin:6px 0;border-radius:8px;max-width:80%;${isUser 
@@ -241,7 +253,7 @@ function addMessage(text, isUser, extra) {
   div.innerHTML = `<div style="font-size:0.85em;color:#888;margin-bottom:4px;">${isUser ? '你' : '🌳 GWS'}</div>${text}`;
   if (extra) div.innerHTML += `<div style="font-size:0.75em;color:#666;margin-top:4px;">${extra}</div>`;
   history.appendChild(div);
-  history.scrollTop = history.scrollHeight;
+  if (doScroll) history.scrollTop = history.scrollHeight;
 }
 
 async function sendInput() {

@@ -3,6 +3,7 @@ config/llm.json
 
 # Runtime data
 data/
+demo_data/
 dreams/
 *.db
 
