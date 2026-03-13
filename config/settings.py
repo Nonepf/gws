@@ -13,5 +13,5 @@ EMOTION_DECAY_RATE = 0.98             # 情绪向自然中性衰减的速度
 
 # === 潜意识层 ===
 SUBCONSCIOUS_CYCLE_SECONDS = 3600     # 1小时大周期
-SUBCONSCIOUS_BURST_AGENTS = 4         # burst期并行sub-agent数
+SUBCONSCIOUS_BURST_AGENTS = 2         # burst期并行sub-agent数（每个都调LLM，默认2个控制成本）
 SUBCONSCIOUS_BURST_DURATION = 1200    # burst期持续时间（秒），20分钟

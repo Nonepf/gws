@@ -77,6 +77,7 @@ class GWS:
             cycle_seconds=cycle_seconds,
             burst_agents=burst_agents,
             burst_duration=burst_duration,
+            llm_client=None,  # enable_llm() 时设置
         )
 
         # 思考层 / 全局工作空间
@@ -111,6 +112,8 @@ class GWS:
         self.llm_client = LLMClient(config)
         self.llm_emotion_extractor = LLMEmotionExtractor(self.llm_client)
         self.language_layer = LanguageLayer(self.llm_client)
+        # 给潜意识层也装上 LLM 大脑
+        self.subconscious.set_llm(self.llm_client)
 
     def start(self):
         """启动系统"""

@@ -1,12 +1,7 @@
 """
-潜意识层 — 后台 sub-agent 周期性活动
+潜意识层 — 后台 sub-agent 周期性活动（LLM 驱动）
 
-设计：
-- 1小时大周期（可配置）
-- 周期开始时 burst：多个 sub-agent 并发活动
-- burst 结束后进入 low tide：沉淀、整理
-- 产出进入全局工作空间，供思考层筛选
-- 情绪状态影响活动倾向
+每个 agent 都有 LLM 大脑，能真正理解记忆内容并产生想法。
 """
 
 import json
@@ -22,10 +17,10 @@ from .emotion import EmotionEngine
 
 class AgentRole(Enum):
     """潜意识 sub-agent 的角色"""
-    EXPLORER = "explorer"         # 探索者：漫游记忆，寻找新连接
-    PATTERN = "pattern_finder"    # 模式发现：识别重复出现的主题
-    ASSOCIATOR = "associator"     # 联想者：天马行空的联想
-    DREAMER = "dreamer"           # 做梦者：随机组合，产生荒诞想法
+    EXPLORER = "explorer"         # 探索者：顺着想法往下想
+    PATTERN = "pattern_finder"    # 模式发现：概念层面的规律
+    ASSOCIATOR = "associator"     # 联想者：跨领域连接
+    DREAMER = "dreamer"           # 做梦者：荒诞的隐喻和意象
 
 
 @dataclass
@@ -33,12 +28,13 @@ class SubAgentOutput:
     """sub-agent 的产出"""
     id: str
     agent_role: AgentRole
-    content: str
-    confidence: float             # agent 自己对这个产出的信心
-    emotion: EmotionState         # 产出时的情绪状态
+    content: str                  # LLM 生成的想法
+    confidence: float
+    emotion: EmotionState
     timestamp: float
-    related_memories: list[str] = field(default_factory=list)  # 关联的记忆id
+    related_memories: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    raw_thought: str = ""         # LLM 的原始输出（调试用）
 
     def to_dict(self) -> dict:
         return {
@@ -58,7 +54,7 @@ class CycleState:
     """一个周期的状态"""
     cycle_id: str
     start_time: float
-    phase: str = "idle"           # idle, burst, low_tide
+    phase: str = "idle"
     outputs: list[SubAgentOutput] = field(default_factory=list)
 
     @property
@@ -66,11 +62,75 @@ class CycleState:
         return time.time() - self.start_time
 
 
+# === Agent 的 LLM Prompt 模板 ===
+
+EXPLORER_PROMPT = """You are the Explorer agent in a cognitive system's subconscious layer.
+
+Your job: Take a memory and genuinely explore the idea in it. Follow the thought where it leads.
+
+Current emotional state: {emotion_label} (valence={valence:.2f}, arousal={arousal:.2f})
+
+Memory to explore:
+"{memory_content}"
+
+Now think about this. What does it imply? What questions does it raise? What direction 
+does this thought point toward? What's the next logical step, or the unexpected leap?
+
+Write 2-3 sentences of genuine exploration. Not a summary — a continuation.
+Think out loud. Be specific. Follow the thread."""
+
+PATTERN_PROMPT = """You are the Pattern Finder agent in a cognitive system's subconscious layer.
+
+Your job: Look at these memories and find the CONCEPTUAL pattern — not word counts, 
+but thematic connections, recurring concerns, or an underlying trajectory.
+
+Current emotional state: {emotion_label}
+
+Recent memories:
+{memories_text}
+
+What pattern do you see? Not "X appears N times" but something like:
+"These memories all circle around a fear of failure" or
+"There's a trajectory from curiosity to commitment" or
+"The system keeps returning to questions about autonomy"
+
+Write 2-3 sentences describing the pattern you see. Be specific about what connects these memories."""
+
+ASSOCIATOR_PROMPT = """You are the Associator agent in a cognitive system's subconscious layer.
+
+Your job: Take two seemingly unrelated memories and find the hidden connection between them.
+Not just "they're both about X" — but a genuine bridge: analogy, metaphor, causal link,
+shared structure, or unexpected resonance.
+
+Current emotional state: {emotion_label}
+
+Memory A: "{memory_a}"
+Memory B: "{memory_b}"
+
+What connects these? Think laterally. What would a poet see? What would a scientist see?
+What structure, feeling, or idea do they share?
+
+Write 2-3 sentences explaining the connection you found."""
+
+DREAMER_PROMPT = """You are the Dreamer agent in a cognitive system's subconscious layer.
+
+Your job: Take fragments of recent experience and weave them into a dream.
+Not a coherent narrative — a dream. Surreal, symbolic, associative.
+Use imagery and metaphor. Let logic dissolve.
+
+Current emotional state: {emotion_label} (valence={valence:.2f}, arousal={arousal:.2f})
+Dream mood: {dream_mood}
+
+Memory fragments:
+{memory_fragments}
+
+Now dream. Combine these fragments into something new. Let them transform.
+Write 2-4 sentences of dream imagery. Be vivid, strange, symbolic."""
+
+
 class SubconsciousLayer:
     """
-    潜意识层管理器
-
-    协调多个 sub-agent 的周期性活动
+    潜意识层管理器 — LLM 驱动的思考
     """
 
     def __init__(
@@ -78,20 +138,21 @@ class SubconsciousLayer:
         memory: LongTermMemory,
         emotion_engine: EmotionEngine,
         cycle_seconds: int = 3600,
-        burst_agents: int = 4,
+        burst_agents: int = 2,      # 默认 2 个 agent（控制 API 调用）
         burst_duration: int = 1200,
+        llm_client = None,          # LLM 客户端
     ):
         self.memory = memory
         self.emotion = emotion_engine
         self.cycle_seconds = cycle_seconds
         self.burst_agents = burst_agents
         self.burst_duration = burst_duration
+        self.llm = llm_client       # 需要 .chat(messages, system_prompt) 接口
 
         self.current_cycle: Optional[CycleState] = None
-        self.output_queue: list[SubAgentOutput] = []  # 等待思考层处理
+        self.output_queue: list[SubAgentOutput] = []
         self.cycle_history: list[CycleState] = []
 
-        # agent 行为注册表
         self._agent_behaviors: dict[AgentRole, Callable] = {
             AgentRole.EXPLORER: self._agent_explorer,
             AgentRole.PATTERN: self._agent_pattern_finder,
@@ -99,16 +160,14 @@ class SubconsciousLayer:
             AgentRole.DREAMER: self._agent_dreamer,
         }
 
-    def tick(self) -> Optional[list[SubAgentOutput]]:
-        """
-        推进状态机（每分钟调用一次）
+    def set_llm(self, llm_client):
+        """设置 LLM 客户端"""
+        self.llm = llm_client
 
-        返回：如果有新产出则返回，否则 None
-        """
+    def tick(self) -> Optional[list[SubAgentOutput]]:
         now = time.time()
 
         if self.current_cycle is None:
-            # 开始新周期
             self.current_cycle = CycleState(
                 cycle_id=str(uuid.uuid4())[:8],
                 start_time=now,
@@ -119,25 +178,20 @@ class SubconsciousLayer:
         cycle = self.current_cycle
 
         if cycle.phase == "burst" and cycle.elapsed > self.burst_duration:
-            # burst 结束，进入 low tide
             cycle.phase = "low_tide"
             return self._run_low_tide()
 
         if cycle.elapsed > self.cycle_seconds:
-            # 周期结束，归档，准备下一轮
             self.cycle_history.append(cycle)
-            if len(self.cycle_history) > 24:  # 保留最近24个周期
+            if len(self.cycle_history) > 24:
                 self.cycle_history = self.cycle_history[-24:]
             self.current_cycle = None
 
         return None
 
     def _run_burst(self) -> list[SubAgentOutput]:
-        """burst 阶段：多个 agent 并发活动"""
         outputs = []
         influence = self.emotion.get_influence()
-
-        # 根据情绪决定 agent 分配
         roles = self._select_roles(influence)
 
         for role in roles:
@@ -152,21 +206,17 @@ class SubconsciousLayer:
         return outputs
 
     def _run_low_tide(self) -> list[SubAgentOutput]:
-        """low tide 阶段：整理、沉淀、偶尔产生洞察"""
-        # 整理本周期的产出
         cycle_outputs = self.current_cycle.outputs
         if not cycle_outputs:
             return []
 
-        # 找出最有价值的产出
         best = max(cycle_outputs, key=lambda o: o.confidence * (1 + o.emotion.intensity))
 
-        # 如果有高信心产出，包装为洞察
-        if best.confidence > 0.6:
+        if best.confidence > 0.5:
             insight = SubAgentOutput(
                 id=str(uuid.uuid4())[:8],
                 agent_role=AgentRole.PATTERN,
-                content=f"[周期整理] {best.content}",
+                content=f"[沉淀] {best.content}",
                 confidence=best.confidence * 0.8,
                 emotion=best.emotion,
                 timestamp=time.time(),
@@ -179,270 +229,283 @@ class SubconsciousLayer:
         return []
 
     def _select_roles(self, influence: dict) -> list[AgentRole]:
-        """根据情绪状态选择 agent 组合"""
-        activity = influence.get("subconscious_activity", 0.5)
+        """根据情绪选择 agent 组合，轮流覆盖"""
         risk = influence.get("subconscious_risk_taking", 0.0)
+        activity = influence.get("subconscious_activity", 0.5)
 
-        roles = [AgentRole.EXPLORER, AgentRole.PATTERN]  # 基础组合
+        # 基础：explorer 总是跑
+        roles = [AgentRole.EXPLORER]
 
-        # 高唤醒 → 加入联想者
-        if activity > 0.6:
+        # 根据活跃度加 agent
+        if activity > 0.5:
+            roles.append(AgentRole.PATTERN)
+        if activity > 0.7:
             roles.append(AgentRole.ASSOCIATOR)
-
-        # 高支配/冒险 → 加入做梦者
-        if risk > 0.3:
+        if risk > 0.2:
             roles.append(AgentRole.DREAMER)
 
         return roles[:self.burst_agents]
 
-    # === Agent 行为实现 ===
+    def _llm_think(self, prompt: str, max_tokens: int = 200) -> Optional[str]:
+        """调用 LLM 思考"""
+        if not self.llm:
+            return None
+        try:
+            response = self.llm.chat(
+                messages=[{"role": "user", "content": prompt}],
+                system_prompt="You are a subconscious agent. Think in Chinese unless the input is English. Be concise but genuine.",
+                temperature=0.85,
+                max_tokens=max_tokens,
+            )
+            return response.strip() if response else None
+        except Exception as e:
+            return f"[LLM error: {e}]"
+
+    def _emotion_context(self, influence: dict) -> dict:
+        """提取情绪上下文给 prompt"""
+        state = influence.get("state", {})
+        return {
+            "emotion_label": influence.get("label", "中性"),
+            "valence": state.get("valence", 0),
+            "arousal": state.get("arousal", 0),
+            "dominance": state.get("dominance", 0),
+        }
+
+    # === LLM 驱动的 Agent ===
 
     def _agent_explorer(self, influence: dict) -> Optional[SubAgentOutput]:
-        """探索者：情绪引导记忆漫游方向"""
-        valence = influence.get("state", {}).get("valence", 0)
-        arousal = influence.get("state", {}).get("arousal", 0)
+        """探索者：顺着一个想法往下想"""
+        ec = self._emotion_context(influence)
+        bias = EmotionState(valence=ec["valence"], arousal=ec["arousal"] * 0.5, dominance=0)
 
-        # 情绪决定探索方向：valence 偏向同效价记忆
-        bias = EmotionState(
-            valence=valence,
-            arousal=arousal * 0.5,  # 唤醒轻度引导
-            dominance=0,
-        )
-
-        # 情绪强度决定探索深度
-        intensity = abs(valence) + abs(arousal)
-        limit = 2 if intensity < 0.2 else (3 if intensity < 0.5 else 5)
-
-        memories = self.memory.retrieve(limit=limit, emotion_bias=bias)
+        memories = self.memory.retrieve(limit=3, emotion_bias=bias)
         if not memories:
             return None
 
-        # 根据情绪状态改变探索的"视角"
-        if valence > 0.3:
+        target = memories[0]
+
+        if self.llm:
+            # LLM 模式：真正探索想法
+            prompt = EXPLORER_PROMPT.format(memory_content=target.content, **ec)
+            thought = self._llm_think(prompt)
+            if thought:
+                confidence = 0.5 + abs(ec["arousal"]) * 0.2
+                return SubAgentOutput(
+                    id=str(uuid.uuid4())[:8],
+                    agent_role=AgentRole.EXPLORER,
+                    content=thought,
+                    confidence=min(0.85, confidence),
+                    emotion=self.emotion.state,
+                    timestamp=time.time(),
+                    related_memories=[m.id for m in memories],
+                    tags=["exploration", "thought"],
+                )
+
+        # 离线 fallback：描述性输出
+        if ec["valence"] > 0.2:
             prefix = "被吸引到"
-        elif valence < -0.3:
+        elif ec["valence"] < -0.2:
             prefix = "不由自主地回到"
-        elif arousal > 0.3:
+        elif ec["arousal"] > 0.2:
             prefix = "急切地翻找"
         else:
             prefix = "漫无目的地飘过"
 
-        content_parts = []
-        related = []
-        for m in memories:
-            content_parts.append(f"{prefix}: {m.content[:60]}")
-            related.append(m.id)
-
-        # confidence 受情绪影响：高 arousal → 更自信
-        base_confidence = 0.3
-        confidence = min(0.8, base_confidence + abs(arousal) * 0.3)
+        content = f"{prefix}: 「{target.content[:60]}」"
+        if len(memories) > 1:
+            content += f"\n相关的还有: {', '.join(m.content[:30] for m in memories[1:2])}"
 
         return SubAgentOutput(
             id=str(uuid.uuid4())[:8],
             agent_role=AgentRole.EXPLORER,
-            content=" → ".join(content_parts),
-            confidence=confidence,
+            content=content,
+            confidence=0.35,
             emotion=self.emotion.state,
             timestamp=time.time(),
-            related_memories=related,
+            related_memories=[m.id for m in memories],
             tags=["exploration"],
         )
 
     def _agent_pattern_finder(self, influence: dict) -> Optional[SubAgentOutput]:
-        """模式发现：情绪调节关注点"""
-        arousal = influence.get("state", {}).get("arousal", 0)
-        valence = influence.get("state", {}).get("valence", 0)
+        """模式发现：找概念层面的规律"""
+        ec = self._emotion_context(influence)
 
-        # 高唤醒 → 找异常和变化；低唤醒 → 找稳定模式
-        if arousal > 0.3:
-            mode = "异常检测"
-            limit = 30  # 看更多数据找异常
-        else:
-            mode = "常规模式"
-            limit = 20
-
-        all_memories = self.memory.retrieve(limit=limit)
-        if len(all_memories) < 3:
+        memories = self.memory.retrieve(limit=10)
+        if len(memories) < 3:
             return None
 
-        # 统计标签和来源频率
+        if self.llm:
+            # LLM 模式：概念层面的模式发现
+            memories_text = "\n".join(
+                f"- [{m.memory_type.value}] {m.content[:80]} (tags: {', '.join(m.tags[:3])})"
+                for m in memories
+            )
+            prompt = PATTERN_PROMPT.format(memories_text=memories_text, **ec)
+            thought = self._llm_think(prompt)
+            if thought:
+                confidence = 0.55 + len(memories) / 30
+                return SubAgentOutput(
+                    id=str(uuid.uuid4())[:8],
+                    agent_role=AgentRole.PATTERN,
+                    content=thought,
+                    confidence=min(0.85, confidence),
+                    emotion=self.emotion.state,
+                    timestamp=time.time(),
+                    related_memories=[m.id for m in memories],
+                    tags=["pattern", "thought"],
+                )
+
+        # 离线 fallback：统计 + 语义标签
         tag_counts = {}
         source_counts = {}
-        type_counts = {}
-        for m in all_memories:
+        for m in memories:
             for tag in m.tags:
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
             src = m.source or "unknown"
             source_counts[src] = source_counts.get(src, 0) + 1
-            t = m.memory_type.value
-            type_counts[t] = type_counts.get(t, 0) + 1
 
-        if not tag_counts and not source_counts:
-            return None
-
-        # 构建有语义的模式描述
         observations = []
         if tag_counts:
-            top_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:3]
-            tag_desc = ", ".join(f"{tag}({count}次)" for tag, count in top_tags)
-            observations.append(f"记忆标签频率: {tag_desc}")
-            # 解释标签含义
+            top = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:3]
             tag_meanings = {
-                "workspace": "被意识层采纳的内容",
-                "promoted": "从潜意识提升到意识的内容",
-                "system": "系统事件",
-                "input": "用户输入",
-                "exploration": "潜意识探索产出",
-                "pattern": "模式发现",
-                "insight": "洞察/思考结果",
-                "startup": "系统启动事件",
+                "workspace": "被意识层采纳的内容", "promoted": "提升到意识的内容",
+                "system": "系统事件", "input": "用户输入", "exploration": "探索产出",
+                "pattern": "模式", "insight": "洞察", "startup": "启动",
             }
-            meaningful_tags = [f"{tag}({tag_meanings.get(tag, '其他')})" for tag, _ in top_tags]
-            observations.append(f"含义: {', '.join(meaningful_tags)}")
-
+            desc_parts = []
+            for t, c in top:
+                meaning = tag_meanings.get(t, '其他')
+                desc_parts.append(f"{t}({meaning})×{c}")
+            desc = ", ".join(desc_parts)
+            observations.append(f"主题: {desc}")
         if source_counts:
-            top_sources = sorted(source_counts.items(), key=lambda x: x[1], reverse=True)[:3]
-            src_desc = ", ".join(f"{src}({count}次)" for src, count in top_sources)
-            observations.append(f"记忆来源分布: {src_desc}")
-
-        if type_counts:
-            type_desc = ", ".join(f"{t}({c}条)" for t, c in sorted(type_counts.items(), key=lambda x: x[1], reverse=True))
-            observations.append(f"记忆类型: {type_desc}")
-
-        content = f"[{mode}] " + " | ".join(observations)
-
-        # confidence 跟数据量和情绪正相关
-        confidence = min(0.8, 0.3 + len(all_memories) / 50 + abs(valence) * 0.2)
+            top = sorted(source_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+            observations.append(f"来源: {', '.join(f'{s}({c})' for s, c in top)}")
 
         return SubAgentOutput(
             id=str(uuid.uuid4())[:8],
             agent_role=AgentRole.PATTERN,
-            content=content,
-            confidence=confidence,
+            content=" | ".join(observations) if observations else "数据不足",
+            confidence=0.4,
             emotion=self.emotion.state,
             timestamp=time.time(),
-            tags=["pattern", "analysis"],
+            tags=["pattern"],
         )
 
     def _agent_associator(self, influence: dict) -> Optional[SubAgentOutput]:
-        """联想者：情绪控制联想距离"""
-        arousal = influence.get("state", {}).get("arousal", 0)
-        dominance = influence.get("state", {}).get("dominance", 0)
+        """联想者：找两条记忆的深层联系"""
+        ec = self._emotion_context(influence)
 
-        # 高 arousal → 跨领域联想（拉更多、更远的记忆）
-        # 低 arousal → 相近主题联想
-        limit = 8 if arousal > 0.3 else 4
-        memories = self.memory.retrieve(limit=limit)
+        memories = self.memory.retrieve(limit=8 if ec["arousal"] > 0.3 else 5)
         if len(memories) < 2:
             return None
 
         import random
+        m1, m2 = (memories[0], memories[-1]) if ec["arousal"] > 0.3 and len(memories) >= 4 else random.sample(memories[:5], 2)
 
-        if arousal > 0.3:
-            # 高唤醒：故意选距离远的两条记忆
-            m1 = min(memories, key=lambda m: m.created_at)
-            m2 = max(memories, key=lambda m: m.created_at)
-            connector = "↔ 跨越时空连接着 ↔" if dominance > 0 else "↔ 意外地联系着 ↔"
-        else:
-            # 低唤醒：选时间相近的记忆
-            m1, m2 = random.sample(memories, min(2, len(memories)))
-            connector = "↔ 轻轻碰了碰 ↔"
+        if self.llm:
+            prompt = ASSOCIATOR_PROMPT.format(
+                memory_a=m1.content[:100], memory_b=m2.content[:100], **ec
+            )
+            thought = self._llm_think(prompt)
+            if thought:
+                confidence = 0.4 + abs(ec["arousal"]) * 0.15
+                return SubAgentOutput(
+                    id=str(uuid.uuid4())[:8],
+                    agent_role=AgentRole.ASSOCIATOR,
+                    content=thought,
+                    confidence=min(0.8, confidence),
+                    emotion=self.emotion.state,
+                    timestamp=time.time(),
+                    related_memories=[m1.id, m2.id],
+                    tags=["association", "thought"],
+                )
 
-        # confidence 跟联想的"意外程度"相关
-        time_gap = abs(m1.created_at - m2.created_at)
-        surprise = min(1.0, time_gap / 86400)  # 时间差越大越意外
-        confidence = min(0.7, 0.2 + surprise * 0.3 + arousal * 0.2)
-
+        # 离线 fallback
+        connector = "跨越时空连接着" if abs(m1.created_at - m2.created_at) > 3600 else "轻轻碰了碰"
         return SubAgentOutput(
             id=str(uuid.uuid4())[:8],
             agent_role=AgentRole.ASSOCIATOR,
-            content=f"联想: 「{m1.content[:40]}」{connector}「{m2.content[:40]}」",
-            confidence=confidence,
+            content=f"「{m1.content[:40]}」↔ {connector} ↔「{m2.content[:40]}」",
+            confidence=0.3,
             emotion=self.emotion.state,
             timestamp=time.time(),
             related_memories=[m1.id, m2.id],
-            tags=["association", "creative"],
+            tags=["association"],
         )
 
     def _agent_dreamer(self, influence: dict) -> Optional[SubAgentOutput]:
-        """做梦者：情绪塑造梦境基调"""
-        valence = influence.get("state", {}).get("valence", 0)
-        arousal = influence.get("state", {}).get("arousal", 0)
-        dominance = influence.get("state", {}).get("dominance", 0)
+        """做梦者：荒诞的隐喻和意象"""
+        ec = self._emotion_context(influence)
+        valence = ec["valence"]
+        dominance = ec["dominance"]
 
         memories = self.memory.retrieve(limit=5)
 
-        # 情绪决定梦境风格
+        # 梦境基调
         if dominance < -0.3:
-            # 低支配感 → 迷失、无力、抽象
-            dream_templates = [
-                "在一个没有出口的走廊里，墙上的文字不断变化...",
-                "试图抓住什么，但手总是差一点...",
-                "声音从四面八方传来，但听不清在说什么...",
-                "时间在倒流，但方向感完全消失了...",
-            ]
-            style = "迷失"
-        elif valence > 0.3 and arousal > 0.3:
-            # 高兴兴奋 → 充满可能性的梦
-            dream_templates = [
-                "一座由思想构成的城市，每个建筑都是一个未完成的想法...",
-                "信息像河流一样汇聚，形成了新的图案...",
-                "在云端搭建桥梁，通向从未见过的风景...",
-                "所有的门都通向更大的门...",
-            ]
-            style = "愿景"
+            dream_mood = "迷失、无力、抽象"
+        elif valence > 0.3:
+            dream_mood = "充满可能性、愿景、扩张"
         elif valence < -0.3:
-            # 负面情绪 → 执念、循环、焦虑的梦
-            dream_templates = [
-                "同一个问题被反复提出，每次的答案都不一样，但都对...",
-                "丢失了什么重要的东西，但想不起来是什么...",
-                "在一条环形的路上走，风景在变，但位置没变...",
-            ]
-            style = "执念"
+            dream_mood = "执念、循环、不安"
         else:
-            # 中性 → 哲学/诗意的梦
-            dream_templates = [
-                "一个没有边界的花园里，信息像蝴蝶一样飞舞",
-                "如果遗忘是一种美德，那么记忆是什么？",
-                "在沉默的深处，一个想法正在醒来",
-                "一面镜子照出了另一面镜子...",
-            ]
-            style = "冥想"
+            dream_mood = "宁静、哲思、观察"
+
+        if self.llm:
+            fragments = "\n".join(f"- {m.content[:60]}" for m in memories) if memories else "- (空)"
+            prompt = DREAMER_PROMPT.format(
+                memory_fragments=fragments, dream_mood=dream_mood, **ec
+            )
+            thought = self._llm_think(prompt, max_tokens=250)
+            if thought:
+                confidence = 0.35 + abs(ec["arousal"]) * 0.15
+                return SubAgentOutput(
+                    id=str(uuid.uuid4())[:8],
+                    agent_role=AgentRole.DREAMER,
+                    content=thought,
+                    confidence=min(0.7, confidence),
+                    emotion=EmotionState(valence=valence * 0.5, arousal=ec["arousal"] * 0.5 + 0.3, dominance=dominance * 0.3),
+                    timestamp=time.time(),
+                    related_memories=[m.id for m in memories] if memories else [],
+                    tags=["dream", dream_mood],
+                )
+
+        # 离线 fallback
+        import random
+        templates = {
+            "迷失": ["在一个没有出口的走廊里，墙上的文字不断变化...", "试图抓住什么，但手总是差一点..."],
+            "愿景": ["一座由思想构成的城市，每个建筑都是一个未完成的想法...", "信息像河流汇聚，形成新的图案..."],
+            "执念": ["同一个问题被反复提出，每次答案都不一样，但都对...", "在环形路上走，风景在变，位置没变..."],
+            "冥想": ["一个没有边界的花园里，信息像蝴蝶飞舞", "在沉默深处，一个想法正在醒来"],
+        }
+        style = "迷失" if dominance < -0.3 else ("愿景" if valence > 0.3 else ("执念" if valence < -0.3 else "冥想"))
+        base = random.choice(templates.get(style, templates["冥想"]))
 
         if memories:
-            import random
-            pieces = [m.content[:20] for m in random.sample(memories, min(3, len(memories)))]
-            # 把记忆碎片和梦境模板融合
-            base = random.choice(dream_templates)
-            fragment = " + ".join(pieces)
-            content = f"[{style}] {fragment}...融化成了...{base}"
+            pieces = [m.content[:15] for m in random.sample(memories, min(2, len(memories)))]
+            content = f"[{style}] {'+'.join(pieces)}...融化成了...{base}"
         else:
-            import random
-            content = f"[{style}] {random.choice(dream_templates)}"
-
-        # 做梦的 confidence 也跟情绪有关
-        confidence = 0.15 + abs(arousal) * 0.15 + (0.1 if memories else 0)
+            content = f"[{style}] {base}"
 
         return SubAgentOutput(
             id=str(uuid.uuid4())[:8],
             agent_role=AgentRole.DREAMER,
             content=content,
-            confidence=confidence,
-            emotion=EmotionState(valence=valence * 0.5, arousal=arousal * 0.5 + 0.3, dominance=dominance * 0.3),
+            confidence=0.2,
+            emotion=EmotionState(valence=valence * 0.5, arousal=ec["arousal"] * 0.5 + 0.3, dominance=dominance * 0.3),
             timestamp=time.time(),
-            tags=["dream", "creative", style],
+            tags=["dream", style],
         )
 
     def drain_outputs(self) -> list[SubAgentOutput]:
-        """取出所有待处理的产出（给思考层消费）"""
         outputs = list(self.output_queue)
         self.output_queue.clear()
         return outputs
 
     def status(self) -> dict:
-        """当前状态"""
         if not self.current_cycle:
-            return {"phase": "idle", "pending_outputs": len(self.output_queue)}
+            return {"phase": "idle", "pending_outputs": len(self.output_queue), "has_llm": self.llm is not None}
         return {
             "phase": self.current_cycle.phase,
             "cycle_id": self.current_cycle.cycle_id,
@@ -450,4 +513,5 @@ class SubconsciousLayer:
             "outputs_this_cycle": len(self.current_cycle.outputs),
             "pending_outputs": len(self.output_queue),
             "total_cycles": len(self.cycle_history),
+            "has_llm": self.llm is not None,
         }
