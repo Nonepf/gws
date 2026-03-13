@@ -20,6 +20,8 @@ from .memory import LongTermMemory, WorkingMemory, MemoryType, EmotionState as M
 from .emotion import EmotionEngine, EmotionState
 from .subconscious import SubconsciousLayer
 from .workspace import GlobalWorkspace
+from .state import StateManager
+from .autonomy import AutonomyEngine
 
 
 class GWS:
@@ -93,6 +95,12 @@ class GWS:
         self.llm_emotion_extractor = None
         self.language_layer = None
 
+        # 状态持久化
+        self.state_manager = StateManager(self.workspace_dir / "state")
+
+        # 自主探索引擎
+        self.autonomy = AutonomyEngine(self.emotion_engine)
+
         # 状态
         self._started = False
         self._tick_count = 0
@@ -116,16 +124,30 @@ class GWS:
         self.subconscious.set_llm(self.llm_client)
 
     def start(self):
-        """启动系统"""
+        """启动系统 — 尝试恢复之前的状态"""
         self._started = True
-        # 编码启动记忆
-        self.long_term_memory.encode(
-            content="GWS 系统启动",
-            memory_type=MemoryType.EPISODIC,
-            emotion=MemEmotion(0.3, 0.4, 0.2),
-            tags=["system", "startup"],
-            source="gws",
-        )
+        
+        # 尝试恢复状态
+        restored = self.state_manager.restore(self)
+        
+        if restored:
+            # 恢复成功
+            self.long_term_memory.encode(
+                content="GWS 系统重启（状态已恢复）",
+                memory_type=MemoryType.EPISODIC,
+                emotion=MemEmotion(0.2, 0.3, 0.2),
+                tags=["system", "restart"],
+                source="gws",
+            )
+        else:
+            # 全新启动
+            self.long_term_memory.encode(
+                content="GWS 系统启动",
+                memory_type=MemoryType.EPISODIC,
+                emotion=MemEmotion(0.3, 0.4, 0.2),
+                tags=["system", "startup"],
+                source="gws",
+            )
 
     def tick(self) -> dict:
         """
@@ -167,6 +189,9 @@ class GWS:
         输入会影响情绪，写入工作记忆，触发思考
         """
         self._input_count += 1
+
+        # 通知自主引擎：有交互了
+        self.autonomy.on_user_interaction()
 
         # 1. 更新情绪（LLM 优先，回退到规则）
         if self.llm_emotion_extractor:
@@ -267,6 +292,8 @@ class GWS:
             "workspace": self.workspace.status(),
             "working_memory": len(self.working_memory.get_all()),
             "long_term_memory": self.long_term_memory.stats(),
+            "autonomy": self.autonomy.get_status(),
+            "state_restored": self.state_manager.exists(),
         }
 
     def speak(self, user_message: str = None) -> str:
@@ -312,3 +339,48 @@ class GWS:
     def export_state(self) -> str:
         """导出完整状态（用于持久化或调试）"""
         return json.dumps(self.get_status(), ensure_ascii=False, indent=2)
+
+    def save_state(self) -> dict:
+        """保存当前状态到磁盘"""
+        return self.state_manager.save(self)
+
+    def autonomous_tick(self) -> dict:
+        """
+        自主探索 tick — 在没有用户输入时调用
+        
+        返回建议的动作
+        """
+        action = self.autonomy.tick()
+        
+        if action["type"] == "explore":
+            # 自主探索
+            topic = action.get("topic", "随机想法")
+            result = self.think_about(topic)
+            self.autonomy.on_exploration_complete(topic, interesting=True)
+            
+            # 把探索记录到记忆
+            self.long_term_memory.encode(
+                content=f"[自主探索] {topic}",
+                memory_type=MemoryType.INSIGHT,
+                emotion=self.emotion_engine.state,
+                tags=["autonomous", "exploration"],
+                source="autonomy",
+            )
+            
+            return {
+                "action": "explored",
+                "topic": topic,
+                "boredom_before": action.get("boredom", 0),
+                "thoughts": result.get("conscious_output", []),
+            }
+        
+        elif action["type"] == "dream":
+            # 触发梦境
+            self.autonomy.on_dream_complete()
+            return {"action": "dreamed"}
+        
+        return {"action": "idle"}
+
+    def get_autonomy_status(self) -> dict:
+        """获取自主探索状态"""
+        return self.autonomy.get_status()

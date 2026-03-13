@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GWS Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  font-family: -apple-system, 'Segoe UI', sans-serif;
+  background: #0a0a0f; color: #e0e0e0;
+  min-height: 100vh;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 1.5em; margin-bottom: 20px; color: #fff; }
+h1 span { color: #6b8; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 16px; }
+.card {
+  background: #14141f; border-radius: 12px; padding: 20px;
+  border: 1px solid #222;
+}
+.card h2 { font-size: 1em; color: #888; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* Emotion */
+.emotion-display { text-align: center; padding: 20px 0; }
+.emotion-label { font-size: 2em; font-weight: bold; margin-bottom: 10px; }
+.emotion-bar { margin: 8px 0; }
+.emotion-bar label { display: inline-block; width: 60px; text-align: right; margin-right: 10px; color: #888; font-size: 0.85em; }
+.bar-track { display: inline-block; width: 200px; height: 8px; background: #222; border-radius: 4px; vertical-align: middle; position: relative; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; position: absolute; top: 0; }
+.bar-fill.positive { background: #4a9; }
+.bar-fill.negative { background: #e55; }
+.bar-fill.neutral { background: #668; }
+.bar-center { position: absolute; left: 50%; top: -2px; width: 2px; height: 12px; background: #444; }
+
+/* Boredom */
+.boredom-bar { margin: 10px 0; }
+.boredom-track { width: 100%; height: 20px; background: #222; border-radius: 10px; overflow: hidden; }
+.boredom-fill { height: 100%; background: linear-gradient(90deg, #4a9, #ea4, #e55); transition: width 0.5s; border-radius: 10px; }
+.feeling { color: #aaa; font-style: italic; margin-top: 8px; }
+
+/* Subconscious */
+.sub-agent { 
+  display: inline-block; padding: 4px 10px; margin: 3px; 
+  background: #1a1a2e; border-radius: 12px; font-size: 0.85em;
+  border: 1px solid #333;
+}
+.sub-agent.active { border-color: #6b8; color: #6b8; }
+
+/* Thoughts */
+.thought-item {
+  padding: 10px; margin: 6px 0; background: #1a1a2e; border-radius: 8px;
+  border-left: 3px solid #6b8; font-size: 0.9em; line-height: 1.5;
+}
+.thought-time { color: #666; font-size: 0.75em; }
+.thought-source { color: #6b8; font-size: 0.75em; margin-left: 8px; }
+
+/* Stats */
+.stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1a1a1a; }
+.stat:last-child { border: none; }
+.stat-label { color: #888; }
+.stat-value { color: #ddd; font-weight: 500; }
+
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.status-dot.ok { background: #4a9; }
+.status-dot.warn { background: #ea4; }
+.status-dot.err { background: #e55; }
+
+#error { display: none; padding: 10px; background: #311; border-radius: 8px; color: #e88; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🌳 <span>GWS</span> Dashboard</h1>
+  <div id="error"></div>
+  
+  <div class="grid">
+    <!-- Emotion Card -->
+    <div class="card">
+      <h2>🎭 情绪</h2>
+      <div class="emotion-display">
+        <div class="emotion-label" id="emotion-label">--</div>
+        <div class="emotion-bar">
+          <label>V 效价</label>
+          <div class="bar-track"><div class="bar-center"></div><div class="bar-fill" id="bar-v" style="width:50%"></div></div>
+        </div>
+        <div class="emotion-bar">
+          <label>A 唤醒</label>
+          <div class="bar-track"><div class="bar-center"></div><div class="bar-fill" id="bar-a" style="width:50%"></div></div>
+        </div>
+        <div class="emotion-bar">
+          <label>D 支配</label>
+          <div class="bar-track"><div class="bar-center"></div><div class="bar-fill" id="bar-d" style="width:50%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Autonomy Card -->
+    <div class="card">
+      <h2>🤖 自主状态</h2>
+      <div class="boredom-bar">
+        <label style="color:#888">无聊感</label>
+        <div class="boredom-track"><div class="boredom-fill" id="boredom-fill"></div></div>
+      </div>
+      <div class="feeling" id="feeling">--</div>
+      <div style="margin-top: 16px;">
+        <div class="stat"><span class="stat-label">距上次交互</span><span class="stat-value" id="time-since">--</span></div>
+        <div class="stat"><span class="stat-label">探索次数</span><span class="stat-value" id="explore-count">--</span></div>
+        <div class="stat"><span class="stat-label">好奇的话题</span><span class="stat-value" id="curiosity">--</span></div>
+      </div>
+    </div>
+
+    <!-- Subconscious Card -->
+    <div class="card">
+      <h2>🌊 潜意识</h2>
+      <div id="sub-agents"></div>
+      <div style="margin-top:12px">
+        <div class="stat"><span class="stat-label">阶段</span><span class="stat-value" id="sub-phase">--</span></div>
+        <div class="stat"><span class="stat-label">本周期产出</span><span class="stat-value" id="sub-outputs">--</span></div>
+        <div class="stat"><span class="stat-label">总周期数</span><span class="stat-value" id="sub-cycles">--</span></div>
+      </div>
+    </div>
+
+    <!-- System Card -->
+    <div class="card">
+      <h2>📊 系统</h2>
+      <div class="stat"><span class="stat-label">运行 ticks</span><span class="stat-value" id="ticks">--</span></div>
+      <div class="stat"><span class="stat-label">处理输入</span><span class="stat-value" id="inputs">--</span></div>
+      <div class="stat"><span class="stat-label">工作记忆</span><span class="stat-value" id="wm">--</span></div>
+      <div class="stat"><span class="stat-label">长期记忆</span><span class="stat-value" id="ltm">--</span></div>
+      <div class="stat"><span class="stat-label">思考策略</span><span class="stat-value" id="strategy">--</span></div>
+      <div class="stat"><span class="stat-label">LLM</span><span class="stat-value" id="llm-status">--</span></div>
+    </div>
+
+    <!-- Consciousness Card (full width) -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <h2>💭 意识流</h2>
+      <div id="thoughts"><div class="thought-item">等待数据...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/status';
+
+async function refresh() {
+  try {
+    const resp = await fetch(API);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    update(data);
+    document.getElementById('error').style.display = 'none';
+  } catch (e) {
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('error').textContent = `连接失败: ${e.message}`;
+  }
+}
+
+function update(d) {
+  // Emotion
+  const em = d.emotion || {};
+  const st = em.state || {};
+  document.getElementById('emotion-label').textContent = em.label || '--';
+  
+  const v = (st.valence || 0) * 50 + 50;
+  const a = (st.arousal || 0) * 50 + 50;
+  const dd = (st.dominance || 0) * 50 + 50;
+  
+  setBar('bar-v', v, st.valence);
+  setBar('bar-a', a, st.arousal);
+  setBar('bar-d', dd, st.dominance);
+
+  // Autonomy
+  const auto = d.autonomy || {};
+  document.getElementById('boredom-fill').style.width = `${(auto.boredom || 0) * 100}%`;
+  document.getElementById('feeling').textContent = auto.feeling || '--';
+  document.getElementById('time-since').textContent = formatTime(auto.time_since_interaction || 0);
+  document.getElementById('explore-count').textContent = auto.exploration_count || 0;
+  document.getElementById('curiosity').textContent = (auto.curiosity_topics || []).slice(-3).join(', ') || '无';
+
+  // Subconscious
+  const sub = d.subconscious || {};
+  document.getElementById('sub-phase').textContent = sub.phase || '--';
+  document.getElementById('sub-outputs').textContent = sub.outputs_this_cycle || 0;
+  document.getElementById('sub-cycles').textContent = sub.total_cycles || 0;
+  
+  const agentsEl = document.getElementById('sub-agents');
+  const agents = ['explorer', 'pattern_finder', 'associator', 'dreamer'];
+  agentsEl.innerHTML = agents.map(a => 
+    `<span class="sub-agent">${a}</span>`
+  ).join('');
+
+  // System
+  document.getElementById('ticks').textContent = d.uptime_ticks || 0;
+  document.getElementById('inputs').textContent = d.inputs_processed || 0;
+  document.getElementById('wm').textContent = d.working_memory || 0;
+  
+  const ltm = d.long_term_memory || {};
+  document.getElementById('ltm').textContent = ltm.total || 0;
+  document.getElementById('strategy').textContent = em.thinking_strategy || '--';
+  document.getElementById('llm-status').innerHTML = sub.has_llm 
+    ? '<span class="status-dot ok"></span>已连接' 
+    : '<span class="status-dot warn"></span>离线模式';
+
+  // Thoughts - would need separate endpoint, placeholder for now
+}
+
+function setBar(id, pct, rawVal) {
+  const el = document.getElementById(id);
+  el.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  el.className = 'bar-fill ' + (rawVal > 0.1 ? 'positive' : rawVal < -0.1 ? 'negative' : 'neutral');
+}
+
+function formatTime(seconds) {
+  if (seconds < 60) return `${seconds}秒`;
+  if (seconds < 3600) return `${Math.floor(seconds/60)}分钟`;
+  return `${Math.floor(seconds/3600)}小时${Math.floor((seconds%3600)/60)}分`;
+}
+
+// Refresh every 5 seconds
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
