@@ -245,13 +245,19 @@ class LongTermMemory:
         """持久化到磁盘"""
         data = [e.to_dict() for e in self.entries]
         path = self.storage_path / "long_term.json"
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+        text = json.dumps(data, ensure_ascii=False, indent=2)
+        # 清除 LLM 可能产生的非法 UTF-8 surrogate 字符
+        text = text.encode('utf-8', errors='surrogatepass').decode('utf-8', errors='replace')
+        path.write_text(text, encoding='utf-8')
 
     def _load(self):
         """从磁盘加载"""
         path = self.storage_path / "long_term.json"
         if path.exists():
-            data = json.loads(path.read_text())
+            raw = path.read_text(encoding='utf-8')
+            # 处理可能的非法 UTF-8
+            clean = raw.encode('utf-8', errors='surrogatepass').decode('utf-8', errors='replace')
+            data = json.loads(clean)
             self.entries = [MemoryEntry.from_dict(d) for d in data]
 
     def stats(self) -> dict:
